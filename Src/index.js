@@ -160,6 +160,36 @@ async function handleInteraction(interaction, env, ctx) {
   if (interaction.type === 2) {
     const command = interaction.data?.name;
     const subcommand = interaction.data?.options?.[0]?.name;
+
+    // Admin notification relay: slash command is accepted only in the admin room.
+    if (command === "noti" && subcommand === "send") {
+      const ADMIN_CHANNEL_ID = "1573302128351645706";
+      const PUBLIC_CHANNEL_ID = "1571711139220426794";
+      const sourceChannelId = interaction.channel_id;
+      const permissions = BigInt(interaction.member?.permissions || "0");
+      const isAdmin = (permissions & 8n) === 8n;
+      if (sourceChannelId !== ADMIN_CHANNEL_ID || !isAdmin) {
+        return json({ type: 4, data: { content: "⛔ Lệnh này chỉ dành cho Admin trong phòng thông báo quản trị. / Admin-only command in the admin notification room.", flags: 64 } });
+      }
+      const message = interaction.data?.options?.[0]?.options?.find(option => option.name === "message")?.value;
+      if (typeof message !== "string" || !message.trim()) {
+        return json({ type: 4, data: { content: "Vui lòng nhập nội dung thông báo. / Please provide a notification message.", flags: 64 } });
+      }
+      if (message.length > 2000) {
+        return json({ type: 4, data: { content: "Thông báo vượt quá giới hạn 2.000 ký tự. / Message exceeds the 2,000-character limit.", flags: 64 } });
+      }
+      try {
+        await discord(`/channels/${PUBLIC_CHANNEL_ID}/messages`, env, {
+          method: "POST",
+          body: JSON.stringify({ content: message, allowed_mentions: { parse: [] } })
+        });
+        return json({ type: 4, data: { content: "✅ Đã gửi thông báo đến phòng công khai. / Notification sent successfully.", flags: 64 } });
+      } catch (error) {
+        console.error("Notification relay failed:", error);
+        return json({ type: 4, data: { content: "❌ Không gửi được thông báo. Kiểm tra quyền Send Messages của bot ở phòng nhận. / Could not send notification. Check the bot's Send Messages permission in the destination channel.", flags: 64 } });
+      }
+    }
+
     if (command !== "statepanel" || subcommand !== "publish") {
       return json({ type: 4, data: { content: "Unknown command.", flags: 64 } });
     }

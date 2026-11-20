@@ -1,0 +1,13 @@
+{
+  "name": "discord-state-selector",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "register-commands": "node scripts/register-commands.js",
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "^4.0.0"
+  }
+}

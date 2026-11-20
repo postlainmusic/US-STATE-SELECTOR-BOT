@@ -161,6 +161,53 @@ async function handleInteraction(interaction, env, ctx) {
     const command = interaction.data?.name;
     const subcommand = interaction.data?.options?.[0]?.name;
 
+    // Community feedback relay: accept feedback only from the designated room.
+    if (command === "feedback" && subcommand === "send") {
+      const FEEDBACK_CHANNEL_ID = "1572558507067310160";
+      const ADMIN_INBOX_CHANNEL_ID = "1573304587795038319";
+      if (interaction.channel_id !== FEEDBACK_CHANNEL_ID) {
+        return json({ type: 4, data: { content: "📮 Lệnh này chỉ dùng trong phòng góp ý. / This command can only be used in the feedback channel.", flags: 64 } });
+      }
+      const message = interaction.data?.options?.[0]?.options?.find(option => option.name === "message")?.value;
+      if (typeof message !== "string" || !message.trim()) {
+        return json({ type: 4, data: { content: "Vui lòng nhập nội dung góp ý. / Please enter your feedback.", flags: 64 } });
+      }
+      if (message.length > 3500) {
+        return json({ type: 4, data: { content: "Góp ý vượt quá giới hạn 3.500 ký tự. / Feedback exceeds the 3,500-character limit.", flags: 64 } });
+      }
+      const user = interaction.member?.user || interaction.user || {};
+      const username = user.global_name || user.username || "Unknown user";
+      const userId = user.id || "Unknown ID";
+      const deferred = json({ type: 5, data: { flags: 64 } });
+      const work = (async () => {
+        try {
+          await discord(`/channels/${FEEDBACK_CHANNEL_ID === interaction.channel_id ? ADMIN_INBOX_CHANNEL_ID : ADMIN_INBOX_CHANNEL_ID}/messages`, env, {
+            method: "POST",
+            body: JSON.stringify({
+              embeds: [{
+                color: 0x4F8CFF,
+                title: "📩 NEW COMMUNITY FEEDBACK",
+                description: message,
+                fields: [
+                  { name: "Sender", value: `\${username} (<@\${userId}>)\n\` + `User ID: \${userId}`, inline: false },
+                  { name: "Source", value: `<#\${FEEDBACK_CHANNEL_ID}>`, inline: true }
+                ],
+                footer: { text: "Community Feedback Inbox" },
+                timestamp: new Date().toISOString()
+              }],
+              allowed_mentions: { parse: [] }
+            })
+          });
+          await editInteractionResponse(env, interaction, "✅ Đã nhận thông tin. Cảm ơn bạn đã gửi góp ý! / Your feedback has been received. Thank you!");
+        } catch (error) {
+          console.error("Feedback relay failed:", error);
+          await editInteractionResponse(env, interaction, "❌ Chưa gửi được góp ý. Vui lòng thử lại sau hoặc báo quản trị viên. / Could not submit feedback. Please try again later.");
+        }
+      })();
+      ctx.waitUntil(work);
+      return deferred;
+    }
+
     // Admin notification relay: slash command is accepted only in the admin room.
     if (command === "noti" && subcommand === "send") {
       const ADMIN_CHANNEL_ID = "1573302128351645706";

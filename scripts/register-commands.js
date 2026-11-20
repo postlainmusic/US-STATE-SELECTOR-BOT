@@ -20,6 +20,22 @@ const commands = [
     }]
   },
   {
+    name: "feedback",
+    description: "Submit feedback to the admin team",
+    dm_permission: false,
+    options: [{
+      type: 1,
+      name: "send",
+      description: "Send feedback / Gửi góp ý",
+      options: [{
+        type: 3,
+        name: "message",
+        description: "Your feedback / Nội dung góp ý",
+        required: true
+      }]
+    }]
+  },
+  {
     name: "noti",
     description: "Send an admin notification to the community",
     default_member_permissions: "8",

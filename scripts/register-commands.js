@@ -7,17 +7,36 @@ if (!appId || !botToken || !guildId) {
   process.exit(1);
 }
 
-const commands = [{
-  name: "statepanel",
-  description: "Publish the U.S. State Selector panel",
-  default_member_permissions: "268435456",
-  dm_permission: false,
-  options: [{
-    type: 1,
-    name: "publish",
-    description: "Publish the State Selector panel in this channel"
-  }]
-}];
+const commands = [
+  {
+    name: "statepanel",
+    description: "Publish the U.S. State Selector panel",
+    default_member_permissions: "268435456",
+    dm_permission: false,
+    options: [{
+      type: 1,
+      name: "publish",
+      description: "Publish the State Selector panel in this channel"
+    }]
+  },
+  {
+    name: "noti",
+    description: "Send an admin notification to the community",
+    default_member_permissions: "8",
+    dm_permission: false,
+    options: [{
+      type: 1,
+      name: "send",
+      description: "Send a notification / Gửi thông báo",
+      options: [{
+        type: 3,
+        name: "message",
+        description: "Notification text / Nội dung thông báo",
+        required: true
+      }]
+    }]
+  }
+];
 
 const endpoint = `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`;
 const response = await fetch(endpoint, {

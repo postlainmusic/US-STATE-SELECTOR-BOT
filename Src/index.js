@@ -80,12 +80,12 @@ function panelMessage() {
       color: COLORS.background,
       title: "▰  STATE SELECTOR",
       description:
-        "**CHOOSE YOUR TERRITORY. REPRESENT YOUR STATE.**\\n" +
-        "Select one U.S. state to display on your profile.\\n\\n" +
-        "```ansi\\n\\u001b[1;34m  50 STATES  /  04 REGIONS  /  01 SELECTION\\u001b[0m\\n```" +
-        "**01  /  NORTHEAST**  ·  9 states\\n" +
-        "**02  /  MIDWEST**  ·  12 states\\n" +
-        "**03  /  SOUTH**  ·  16 states\\n" +
+        "**CHOOSE YOUR TERRITORY. REPRESENT YOUR STATE.**\n" +
+        "Select one U.S. state to display on your profile.\n\n" +
+        "```ansi\n\\u001b[1;34m  50 STATES  /  04 REGIONS  /  01 SELECTION\\u001b[0m\n```" +
+        "**01  /  NORTHEAST**  ·  9 states\n" +
+        "**02  /  MIDWEST**  ·  12 states\n" +
+        "**03  /  SOUTH**  ·  16 states\n" +
         "**04  /  WEST**  ·  13 states",
       fields: [
         { name: "◈  SELECTION RULE", value: "One member can hold **ONE** state role at a time. Choosing another state automatically replaces the previous one.", inline: false },
@@ -204,7 +204,7 @@ async function handleInteraction(interaction, env, ctx) {
         await editInteractionResponse(env, interaction, message);
       } catch (error) {
         console.error(error);
-        await editInteractionResponse(env, interaction, `Could not update your state role. Please contact a moderator.\\n\\`${String(error.message).slice(0, 250)}\\``);
+        await editInteractionResponse(env, interaction, `Could not update your state role. Please contact a moderator.\nDetails: ${String(error.message).slice(0, 250)}`);
       }
     })();
     ctx.waitUntil(work);

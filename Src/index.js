@@ -207,8 +207,7 @@ async function handleInteraction(interaction, env, ctx) {
         await editInteractionResponse(env, interaction, `Could not update your state role. Please contact a moderator.\\n\\`${String(error.message).slice(0, 250)}\\``);
       }
     })();
-    if (typeof globalThis.__backgroundWork === "function") globalThis.__backgroundWork(work);
-    else work.catch(error => console.error(error));
+    ctx.waitUntil(work);
     return deferred;
   }
 

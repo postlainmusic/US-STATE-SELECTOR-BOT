@@ -1,5 +1,5 @@
 name = "state-selector-bot"
-main = "src/index.js"
+main = "Src/index.js"
 compatibility_date = "2026-11-20"
 workers_dev = true
 

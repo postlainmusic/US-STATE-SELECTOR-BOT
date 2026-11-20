@@ -178,16 +178,21 @@ async function handleInteraction(interaction, env, ctx) {
       if (message.length > 2000) {
         return json({ type: 4, data: { content: "Thông báo vượt quá giới hạn 2.000 ký tự. / Message exceeds the 2,000-character limit.", flags: 64 } });
       }
-      try {
-        await discord(`/channels/${PUBLIC_CHANNEL_ID}/messages`, env, {
-          method: "POST",
-          body: JSON.stringify({ content: message, allowed_mentions: { parse: [] } })
-        });
-        return json({ type: 4, data: { content: "✅ Đã gửi thông báo đến phòng công khai. / Notification sent successfully.", flags: 64 } });
-      } catch (error) {
-        console.error("Notification relay failed:", error);
-        return json({ type: 4, data: { content: "❌ Không gửi được thông báo. Kiểm tra quyền Send Messages của bot ở phòng nhận. / Could not send notification. Check the bot's Send Messages permission in the destination channel.", flags: 64 } });
-      }
+      const deferred = json({ type: 5, data: { flags: 64 } });
+      const work = (async () => {
+        try {
+          await discord(`/channels/${PUBLIC_CHANNEL_ID}/messages`, env, {
+            method: "POST",
+            body: JSON.stringify({ content: message, allowed_mentions: { parse: [] } })
+          });
+          await editInteractionResponse(env, interaction, "✅ Đã gửi thông báo đến phòng công khai. / Notification sent successfully.");
+        } catch (error) {
+          console.error("Notification relay failed:", error);
+          await editInteractionResponse(env, interaction, "❌ Không gửi được thông báo. Kiểm tra quyền Send Messages của bot ở phòng nhận. / Could not send notification. Check the bot's Send Messages permission in the destination channel.");
+        }
+      })();
+      ctx.waitUntil(work);
+      return deferred;
     }
 
     if (command !== "statepanel" || subcommand !== "publish") {

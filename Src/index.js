@@ -181,7 +181,7 @@ async function handleInteraction(interaction, env, ctx) {
       const deferred = json({ type: 5, data: { flags: 64 } });
       const work = (async () => {
         try {
-          await discord(`/channels/${FEEDBACK_CHANNEL_ID === interaction.channel_id ? ADMIN_INBOX_CHANNEL_ID : ADMIN_INBOX_CHANNEL_ID}/messages`, env, {
+          await discord(`/channels/${ADMIN_INBOX_CHANNEL_ID}/messages`, env, {
             method: "POST",
             body: JSON.stringify({
               embeds: [{
@@ -189,8 +189,8 @@ async function handleInteraction(interaction, env, ctx) {
                 title: "📩 NEW COMMUNITY FEEDBACK",
                 description: message,
                 fields: [
-                  { name: "Sender", value: `\${username} (<@\${userId}>)\n\` + `User ID: \${userId}`, inline: false },
-                  { name: "Source", value: `<#\${FEEDBACK_CHANNEL_ID}>`, inline: true }
+                  { name: "Sender", value: `${username} (<@${userId}>)\nUser ID: ${userId}`, inline: false },
+                  { name: "Source", value: `<#${FEEDBACK_CHANNEL_ID}>`, inline: true }
                 ],
                 footer: { text: "Community Feedback Inbox" },
                 timestamp: new Date().toISOString()

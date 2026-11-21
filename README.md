@@ -16,7 +16,7 @@ A serverless Discord interaction bot for a one-state-per-member role selector.
 - Moderation utilities: `/purge`, `/slowmode`, `/lock`, `/unlock` (permission-gated).
 - Community workflows: `/feedback send`, `/noti send` (Admin selects a text or announcement channel as the destination).
 - Voice Assistant: `/join`, `/leave`, `/speak`, `/voice status`, `/voice stop` with 12 languages and male/female voices.
-- POSTLAIN responds only to explicit Discord interactions: slash commands and interactive components (such as the State Selector). It does not subscribe to chat-message or message-content Gateway intents and never auto-replies to ordinary messages. New-member greetings are handled by Carl-bot.
+- POSTLAIN responds to slash commands and interactive components. It also receives Discord message events for the dedicated word-chain room only at the application-handler level; messages from all other channels are ignored and never trigger replies. New-member greetings are handled by Carl-bot.
 
 ## Architecture
 

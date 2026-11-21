@@ -31,7 +31,7 @@ const PROVIDERS = {
         body: JSON.stringify({
           systemInstruction: { parts: [{ text: systemPrompt }] },
           contents: [{ role: "user", parts: [{ text: question }] }],
-          generationConfig: { temperature: 0.82, maxOutputTokens: 700 }
+          generationConfig: { maxOutputTokens: 700 }
         })
       });
       const payload = await response.json().catch(() => ({}));

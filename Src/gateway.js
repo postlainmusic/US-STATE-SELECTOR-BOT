@@ -367,6 +367,23 @@ export class DiscordGateway {
       const row = this.ctx.storage.sql.exec("SELECT last_insert_rowid() AS id").toArray()[0];
       return Response.json({ ok: true, id: Number(row?.id || 0), message: "📚 Đã gửi đề xuất **" + parsed.phrase + "**. Admin sẽ kiểm tra trước khi đưa vào từ điển." });
     }
+    if (url.pathname === "/wordchain/pending-suggestions" && request.method === "GET") {
+      const payloadAdmin = url.searchParams.get("isAdmin") === "true";
+      if (!payloadAdmin) return Response.json({ ok: false, message: "Chỉ Admin mới được xem đề xuất đang chờ." }, { status: 403 });
+      const rows = this.ctx.storage.sql.exec(
+        "SELECT id, phrase, submitted_by, submitted_at FROM word_chain_suggestions WHERE status = 'pending' ORDER BY submitted_at ASC LIMIT 15"
+      ).toArray();
+      if (!rows.length) return Response.json({ ok: true, count: 0, message: "📚 Hiện không có đề xuất từ nào đang chờ duyệt." });
+      const lines = rows.map(row =>
+        "`#" + Number(row.id) + "` **" + String(row.phrase) + "** · <@" + String(row.submitted_by) + ">"
+      );
+      return Response.json({
+        ok: true,
+        count: rows.length,
+        message: "📚 **ĐỀ XUẤT TỪ ĐANG CHỜ DUYỆT**\\n" + lines.join("\\n") +
+          "\\n\\nDuyệt: `/duyet-tu id:` · Từ chối: `/tu-choi-tu id:`"
+      });
+    }
     if (url.pathname === "/wordchain/review-suggestion" && request.method === "POST") {
       const payload = await request.json();
       if (!payload.isAdmin) return Response.json({ ok: false, message: "Chỉ Admin mới được duyệt đề xuất." }, { status: 403 });

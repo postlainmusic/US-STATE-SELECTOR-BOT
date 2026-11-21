@@ -184,6 +184,73 @@ function ephemeral(content) {
   return json({ type: 4, data: { content, flags: 64, allowed_mentions: { parse: [] } } });
 }
 
+function helpPanel(category = "games") {
+  const sections = {
+    games: {
+      title: "Trò chơi",
+      description: "Chọn một trò chơi và tham gia ngay trong kênh được thiết lập.",
+      fields: [
+        { name: "Nối từ", value: "Gửi cụm gồm **2 tiếng**. Tiếng đầu phải khớp với tiếng cuối của lượt trước. Không lặp cụm và không đi hai lượt liên tiếp. Mỗi lượt có 30 giây.", inline: false },
+        { name: "Lệnh", value: "`/noitu start` mở ván · `/noitu end` kết thúc · `/noitu score` xem bảng xếp hạng", inline: false },
+        { name: "Hồ sơ", value: "`/nme` xem thành tích · `/nrank` xem top 20 · `/them-tu` bổ sung cụm từ (Admin)", inline: false }
+      ]
+    },
+    community: {
+      title: "Cộng đồng",
+      description: "Các công cụ dành cho thành viên.",
+      fields: [
+        { name: "Thông tin", value: "`/ping` · `/serverinfo` · `/userinfo` · `/avatar`", inline: false },
+        { name: "Tương tác", value: "`/report send` · `/poll create` · `/coinflip` · `/roll` · `/choose`", inline: false },
+        { name: "Vai trò & góp ý", value: "`/statepanel publish` · `/feedback send`", inline: false }
+      ]
+    },
+    voice: {
+      title: "Voice",
+      description: "Công cụ kết nối và phát giọng nói trong voice channel.",
+      fields: [
+        { name: "Điều khiển", value: "`/join` tham gia · `/leave` rời phòng", inline: false },
+        { name: "Đọc văn bản", value: "`/speak` nhập nội dung, ngôn ngữ và giọng đọc", inline: false },
+        { name: "Trạng thái", value: "`/voice status` xem trạng thái · `/voice stop` dừng phát", inline: false }
+      ]
+    },
+    admin: {
+      title: "Quản trị",
+      description: "Các lệnh dành cho đội ngũ có quyền phù hợp.",
+      fields: [
+        { name: "Thông báo", value: "`/noti send` gửi thông báo đến kênh được chọn", inline: false },
+        { name: "Kiểm duyệt", value: "`/purge` · `/slowmode` · `/lock` · `/unlock`", inline: false },
+        { name: "Từ điển nối từ", value: "`/them-tu` thêm cụm 2 tiếng vào danh sách được chấp nhận", inline: false }
+      ]
+    }
+  };
+  const selected = sections[category] || sections.games;
+  return {
+    embeds: [{
+      color: COLORS.accent,
+      title: selected.title,
+      description: selected.description,
+      fields: selected.fields,
+      footer: { text: "Chọn một mục bên dưới để xem hướng dẫn" }
+    }],
+    components: [{
+      type: 1,
+      components: [{
+        type: 3,
+        custom_id: "help_category",
+        placeholder: "Chọn danh mục",
+        min_values: 1,
+        max_values: 1,
+        options: [
+          { label: "Trò chơi", value: "games", description: "Nối từ và hồ sơ trò chơi" },
+          { label: "Cộng đồng", value: "community", description: "Thông tin và công cụ thành viên" },
+          { label: "Voice", value: "voice", description: "Kết nối và đọc văn bản" },
+          { label: "Quản trị", value: "admin", description: "Thông báo và kiểm duyệt" }
+        ]
+      }]
+    }]
+  };
+}
+
 function avatarUrl(user) {
   if (user?.avatar) return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=256`;
   const index = Number((BigInt(user?.id || "0") >> 22n) % 6n);
@@ -417,24 +484,7 @@ async function handleInteraction(interaction, env, ctx) {
     }
 
     if (command === "help") {
-      return json({
-        type: 4,
-        data: {
-          embeds: [{
-            color: COLORS.accent,
-            title: "POSTLAIN COMMUNITY TOOLKIT",
-            description: "Một bộ công cụ cho thành viên và đội ngũ quản trị.",
-            fields: [
-              { name: "🙋 Thành viên", value: "`/help` · `/ping` · `/serverinfo` · `/userinfo` · `/avatar` · `/report send` · `/poll create` · `/coinflip` · `/roll` · `/choose` · `/noitu end` · `/nme` · `/nrank` · `/them-tu`", inline: false },
-              { name: "🔊 Voice Assistant", value: "`/join` · `/leave` · `/speak` · `/voice status` · `/voice stop`", inline: false },
-              { name: "🗺️ Cộng đồng", value: "`/statepanel publish` · `/feedback send`", inline: false },
-              { name: "🛡️ Quản trị", value: "`/noti send` · `/purge` · `/slowmode` · `/lock` · `/unlock`", inline: false }
-            ],
-            footer: { text: "POSTLAIN · Community Assistant" }
-          }],
-          flags: 64
-        }
-      });
+      return json({ type: 4, data: { ...helpPanel("games"), flags: 64 } });
     }
 
     if (command === "ping") {
@@ -661,6 +711,10 @@ async function handleInteraction(interaction, env, ctx) {
 
   if (interaction.type === 3) {
     const customId = interaction.data?.custom_id || "";
+    if (customId === "help_category") {
+      const category = interaction.data?.values?.[0] || "games";
+      return json({ type: 7, data: helpPanel(category) });
+    }
     const selectedState = customId === "state_remove"
       ? null
       : interaction.data?.values?.[0];

@@ -277,6 +277,11 @@ const commands = [
     dm_permission: false
   },
   {
+    name: "nserver",
+    description: "Xem thông tin máy chủ",
+    dm_permission: false
+  },
+  {
     name: "serverinfo",
     description: "Show server information",
     dm_permission: false

@@ -31,6 +31,21 @@ const commands = [
     }]
   },
   {
+    name: "knowledge",
+    description: "Manage POSTLAIN AI server knowledge",
+    dm_permission: false,
+    options: [
+      { type: 1, name: "add", description: "Add server knowledge", options: [
+        { type: 3, name: "topic", description: "Knowledge topic", required: true },
+        { type: 3, name: "content", description: "Knowledge content (max 1500 characters)", required: true }
+      ] },
+      { type: 1, name: "list", description: "List saved knowledge entries" },
+      { type: 1, name: "remove", description: "Remove a knowledge entry", options: [
+        { type: 3, name: "entry_id", description: "Message ID from /knowledge list", required: true }
+      ] }
+    ]
+  },
+  {
     name: "feedback",
     description: "Submit feedback to the admin team",
     dm_permission: false,

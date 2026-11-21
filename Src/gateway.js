@@ -57,6 +57,7 @@ export class DiscordGateway {
     this.seq = null;
     this.sessionId = null;
     this.resumeUrl = null;
+    this.lastError = null;
     this.channelNames = new Map();
     this.channelParents = new Map();
     this.lastMentionReplyAt = new Map();
@@ -78,7 +79,11 @@ export class DiscordGateway {
     const url = new URL(request.url);
     if (url.pathname === "/ensure") {
       await this.connect();
-      return Response.json({ ok: true, state: this.ws?.readyState === WebSocket.OPEN ? "connected" : "connecting" });
+      return Response.json({
+        ok: !this.lastError,
+        state: this.ws?.readyState === WebSocket.OPEN ? "connected" : "connecting",
+        lastError: this.lastError
+      });
     }
     if (url.pathname === "/status") {
       const count = this.ctx.storage.sql.exec("SELECT COUNT(*) AS count FROM community_messages").toArray()[0]?.count || 0;
@@ -86,7 +91,9 @@ export class DiscordGateway {
         ok: true,
         state: this.ws?.readyState === WebSocket.OPEN ? "connected" : "disconnected",
         storedMessages: count,
-        guildId: this.env.DISCORD_GUILD_ID
+        guildId: this.env.DISCORD_GUILD_ID,
+        lastError: this.lastError,
+        hasBotToken: Boolean(this.env.DISCORD_BOT_TOKEN)
       });
     }
     if (url.pathname === "/context") {
@@ -115,7 +122,8 @@ export class DiscordGateway {
       this.resumeUrl = this.resumeUrl || savedSession.resumeUrl || null;
     }
     if (!this.env.DISCORD_BOT_TOKEN || !this.env.DISCORD_GUILD_ID) {
-      console.error("Gateway missing DISCORD_BOT_TOKEN or DISCORD_GUILD_ID.");
+      this.lastError = "Missing DISCORD_BOT_TOKEN or DISCORD_GUILD_ID binding.";
+      console.error("POSTLAIN AI Gateway configuration error:", this.lastError);
       return;
     }
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
@@ -129,6 +137,7 @@ export class DiscordGateway {
       const base = this.resumeUrl || info.url;
       const ws = new WebSocket(`${base}?v=10&encoding=json`);
       this.ws = ws;
+      this.lastError = null;
 
       ws.addEventListener("message", event => {
         let packet;
@@ -153,7 +162,8 @@ export class DiscordGateway {
       // Rotate before Cloudflare's 15-minute outbound-connection keepalive window.
       await this.ctx.storage.setAlarm(Date.now() + 13 * 60 * 1000);
     } catch (error) {
-      console.error("Could not connect Discord Gateway:", error);
+      this.lastError = String(error?.message || error).slice(0, 300);
+      console.error("Could not connect Discord Gateway:", this.lastError, error?.stack || "");
       await this.ctx.storage.setAlarm(Date.now() + 15000);
     }
   }
@@ -388,7 +398,7 @@ export class DiscordGateway {
         }
       }
     } catch (error) {
-      console.error("POSTLAIN AI mention handler failed:", error);
+      console.error("POSTLAIN AI mention handler failed:", String(error?.message || error), error?.stack || "");
     }
   }
 }

@@ -1,6 +1,7 @@
 import { VIETNAMESE_WORDS } from "./wordlist.js";
 import { VIETNAMESE_PLAYER_WORDS, VIETNAMESE_CURATED_WORDS } from "./wordlist-player.js";
 import { normalizeVietnamesePhrase, parseTwoSyllablePhrase, validateDictionaryPhrase, validateChainMove } from "./wordchain-core.js";
+import { BAU_CUA_ANIMALS, calculateBauCuaResult, getDailyReward, getVietnamDateKey } from "./game-core.js";
 const DISCORD_API = "https://discord.com/api/v10";
 const DEFAULT_EXCLUDED_CHANNELS = new Set([
   "1571762668916707399", // Staff chat
@@ -89,6 +90,36 @@ export class DiscordGateway {
         status TEXT NOT NULL DEFAULT 'pending'
       )`);
     this.ctx.storage.sql.exec(`CREATE TABLE IF NOT EXISTS word_chain_processed_messages (message_id TEXT PRIMARY KEY, processed_at INTEGER NOT NULL)`);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS game_wallets (
+        user_id TEXT PRIMARY KEY,
+        gold INTEGER NOT NULL DEFAULT 0,
+        daily_streak INTEGER NOT NULL DEFAULT 0,
+        last_daily TEXT,
+        games INTEGER NOT NULL DEFAULT 0,
+        wins INTEGER NOT NULL DEFAULT 0,
+        losses INTEGER NOT NULL DEFAULT 0,
+        updated_at INTEGER NOT NULL
+      )
+    `);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS game_transactions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        amount INTEGER NOT NULL,
+        reason TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    `);
+    this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_game_wallets_gold ON game_wallets(gold DESC)");
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS game_action_receipts (
+        interaction_id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL,
+        action TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    `);
 
   }
 
@@ -119,6 +150,80 @@ export class DiscordGateway {
         readyAt: this.readyAt,
         hasBotToken: Boolean(this.env.DISCORD_BOT_TOKEN)
       });
+    }
+
+    if (url.pathname === "/games/daily" && request.method === "POST") {
+      const payload = await request.json();
+      const userId = String(payload.userId || "");
+      const interactionId = String(payload.interactionId || "");
+      if (!userId || !interactionId) return Response.json({ ok: false, message: "Không xác định được lượt điểm danh." }, { status: 400 });
+      const receipt = this.ctx.storage.sql.exec("SELECT interaction_id FROM game_action_receipts WHERE interaction_id = ?", interactionId).toArray()[0];
+      if (receipt) return Response.json({ ok: false, message: "Lượt điểm danh này đã được xử lý rồi." });
+      this.ctx.storage.sql.exec("INSERT INTO game_action_receipts (interaction_id, user_id, action, created_at) VALUES (?, ?, 'daily', ?)", interactionId, userId, Date.now());
+      const today = getVietnamDateKey();
+      const wallet = this.ctx.storage.sql.exec("SELECT gold, daily_streak, last_daily FROM game_wallets WHERE user_id = ?", userId).toArray()[0];
+      if (wallet?.last_daily === today) return Response.json({ ok: false, message: "Bạn đã điểm danh hôm nay rồi. Mai quay lại nhận tiếp nhé!" });
+      const yesterdayDate = new Date(Date.now() - 86400000);
+      const yesterday = getVietnamDateKey(yesterdayDate.getTime());
+      const streak = wallet?.last_daily === yesterday ? Number(wallet.daily_streak || 0) + 1 : 1;
+      const reward = getDailyReward(streak);
+      const now = Date.now();
+      this.ctx.storage.sql.exec(
+        "INSERT INTO game_wallets (user_id, gold, daily_streak, last_daily, updated_at) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET gold = gold + excluded.gold, daily_streak = excluded.daily_streak, last_daily = excluded.last_daily, updated_at = excluded.updated_at",
+        userId, reward, streak, today, now
+      );
+      this.ctx.storage.sql.exec("INSERT INTO game_transactions (id, user_id, amount, reason, created_at) VALUES (?, ?, ?, 'daily', ?)", interactionId, userId, reward, now);
+      this.ctx.storage.sql.exec("DELETE FROM game_action_receipts WHERE created_at < ?", now - 30 * 86400000);
+      const balance = this.ctx.storage.sql.exec("SELECT gold FROM game_wallets WHERE user_id = ?", userId).toArray()[0]?.gold || reward;
+      return Response.json({ ok: true, reward, streak, balance, message: "🎁 Điểm danh thành công! **+" + reward.toLocaleString("vi-VN") + " Gold**\n🔥 Chuỗi điểm danh: **" + streak + " ngày**\n💰 Số dư: **" + Number(balance).toLocaleString("vi-VN") + " Gold**" });
+    }
+    if (url.pathname === "/games/baucua" && request.method === "POST") {
+      const payload = await request.json();
+      const userId = String(payload.userId || "");
+      const interactionId = String(payload.interactionId || "");
+      if (!userId || !interactionId) return Response.json({ ok: false, message: "Không xác định được lượt chơi." }, { status: 400 });
+      if (this.ctx.storage.sql.exec("SELECT interaction_id FROM game_action_receipts WHERE interaction_id = ?", interactionId).toArray()[0]) {
+        return Response.json({ ok: false, message: "Lượt chơi này đã được xử lý rồi." });
+      }
+      const amount = Number(payload.amount);
+      const animal = String(payload.animal || "");
+      const now = Date.now();
+      const wallet = this.ctx.storage.sql.exec("SELECT gold FROM game_wallets WHERE user_id = ?", userId).toArray()[0];
+      const balance = Number(wallet?.gold || 0);
+      if (!Number.isSafeInteger(amount) || amount < 10 || amount > 10000) return Response.json({ ok: false, message: "Mức cược phải từ 10 đến 10.000 Gold." });
+      if (balance < amount) return Response.json({ ok: false, message: "Bạn không đủ Gold. Hãy dùng `/daily` để nhận thêm." });
+      const limit = Math.floor(0x100000000 / BAU_CUA_ANIMALS.length) * BAU_CUA_ANIMALS.length;
+      const dice = [];
+      while (dice.length < 3) {
+        const value = crypto.getRandomValues(new Uint32Array(1))[0];
+        if (value < limit) dice.push(BAU_CUA_ANIMALS[value % BAU_CUA_ANIMALS.length].value);
+      }
+      const result = calculateBauCuaResult({ animal, amount, dice });
+      if (!result.ok) return Response.json({ ok: false, message: "Lựa chọn con vật không hợp lệ." });
+      this.ctx.storage.sql.exec("INSERT INTO game_action_receipts (interaction_id, user_id, action, created_at) VALUES (?, ?, 'baucua', ?)", interactionId, userId, now);
+      this.ctx.storage.sql.exec(
+        "INSERT INTO game_wallets (user_id, gold, games, wins, losses, updated_at) VALUES (?, ?, 1, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET gold = gold + ?, games = games + 1, wins = wins + ?, losses = losses + ?, updated_at = ?",
+        userId, result.net, result.net > 0 ? 1 : 0, result.net < 0 ? 1 : 0, now, result.net, result.net > 0 ? 1 : 0, result.net < 0 ? 1 : 0, now
+      );
+      this.ctx.storage.sql.exec("INSERT INTO game_transactions (id, user_id, amount, reason, created_at) VALUES (?, ?, ?, 'baucua', ?)", interactionId, userId, result.net, now);
+      this.ctx.storage.sql.exec("DELETE FROM game_action_receipts WHERE created_at < ?", now - 30 * 86400000);
+      const nextBalance = this.ctx.storage.sql.exec("SELECT gold FROM game_wallets WHERE user_id = ?", userId).toArray()[0]?.gold || 0;
+      const diceText = dice.map(value => { const item = BAU_CUA_ANIMALS.find(animalItem => animalItem.value === value); return item.emoji + " " + item.label; }).join(" · ");
+      const title = result.matches ? "🎉 Trúng " + result.matches + " con!" : "🍃 Chưa trúng lượt này.";
+      const delta = result.net > 0 ? "+" + result.net.toLocaleString("vi-VN") : result.net.toLocaleString("vi-VN");
+      return Response.json({ ok: true, result, balance: nextBalance, message: "**BẦU CUA**\n" + diceText + "\n" + title + "\n💰 " + delta + " Gold · Số dư: **" + Number(nextBalance).toLocaleString("vi-VN") + " Gold**" });
+    }
+    if (url.pathname === "/games/balance" && request.method === "GET") {
+      const userId = String(url.searchParams.get("userId") || "");
+      if (!userId) return Response.json({ ok: false, message: "Không xác định được người chơi." }, { status: 400 });
+      const row = this.ctx.storage.sql.exec("SELECT gold, daily_streak, games, wins, losses FROM game_wallets WHERE user_id = ?", userId).toArray()[0] || {};
+      return Response.json({ ok: true, gold: Number(row.gold || 0), dailyStreak: Number(row.daily_streak || 0), games: Number(row.games || 0), wins: Number(row.wins || 0), losses: Number(row.losses || 0), message: "💰 Số dư: **" + Number(row.gold || 0).toLocaleString("vi-VN") + " Gold**\n🔥 Chuỗi điểm danh: **" + Number(row.daily_streak || 0) + " ngày**\n🎲 Số ván: **" + Number(row.games || 0) + "** · Thắng: **" + Number(row.wins || 0) + "** · Thua: **" + Number(row.losses || 0) + "**" });
+    }
+    if (url.pathname === "/games/leaderboard" && request.method === "GET") {
+      const rows = this.ctx.storage.sql.exec("SELECT user_id, gold, games, wins FROM game_wallets ORDER BY gold DESC, wins DESC LIMIT 20").toArray();
+      if (!rows.length) return Response.json({ ok: true, message: "Bảng xếp hạng Gold chưa có dữ liệu. Dùng `/daily` để nhận phần thưởng đầu tiên." });
+      const lines = rows.map((row, index) => (index + 1) + ". <@" + row.user_id + "> · **" + Number(row.gold).toLocaleString("vi-VN") + " Gold** · " + Number(row.games) + " ván");
+      return Response.json({ ok: true, message: "🏆 **BẢNG XẾP HẠNG GOLD**\n" + lines.join("\n") });
     }
 
     if (url.pathname === "/wordchain/start" && request.method === "POST") {

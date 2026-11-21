@@ -11,7 +11,7 @@ const PROVIDERS = {
   gemini: {
     key: "GEMINI_API_KEY",
     model: "AI_GEMINI_MODEL",
-    defaultModel: "gemini-2.5-flash",
+    defaultModel: "gemini-3.8-flash",
     async run(env, question, model) {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${encodeURIComponent(model)}:generateContent?key=${encodeURIComponent(env.GEMINI_API_KEY)}`;
       const response = await fetch(endpoint, {
@@ -34,7 +34,7 @@ const PROVIDERS = {
   groq: {
     key: "GROQ_API_KEY",
     model: "AI_GROQ_MODEL",
-    defaultModel: "llama-3.3-70b-versatile",
+    defaultModel: "openai/gpt-oss-120b",
     async run(env, question, model) {
       return openAICompatible(
         "https://api.groq.com/openai/v1/chat/completions",
@@ -47,7 +47,7 @@ const PROVIDERS = {
   openrouter: {
     key: "OPENROUTER_API_KEY",
     model: "AI_OPENROUTER_MODEL",
-    defaultModel: "meta-llama/llama-3.3-70b-instruct:free",
+    defaultModel: "openrouter/free",
     async run(env, question, model) {
       return openAICompatible(
         "https://openrouter.ai/api/v1/chat/completions",
@@ -94,7 +94,7 @@ export async function generateAnswer(env, question) {
   if (!cleanQuestion) throw new Error("Question is empty.");
   if (cleanQuestion.length > 1800) throw new Error("Câu hỏi dài quá. Giới hạn hiện tại là 1.800 ký tự.");
 
-  const order = String(env.AI_PROVIDER_ORDER || "gemini,groq,openrouter")
+  const order = String(env.AI_PROVIDER_ORDER || "gemini,openrouter")
     .split(",")
     .map(value => value.trim().toLowerCase())
     .filter(Boolean);

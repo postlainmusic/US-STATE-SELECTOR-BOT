@@ -138,6 +138,21 @@ export class DiscordGateway {
   }
 
   async alarm() {
+    const timedGame = this.ctx.storage.sql.exec(
+      "SELECT current_tail, last_player_id, last_move_at FROM word_chain_games WHERE channel_id = ? AND active = 1",
+      WORD_CHAIN_CHANNEL_ID
+    ).toArray()[0];
+    if (timedGame?.current_tail && Date.now() - Number(timedGame.last_move_at) >= WORD_CHAIN_TURN_MS) {
+      this.ctx.storage.sql.exec("UPDATE word_chain_games SET active = 0 WHERE channel_id = ?", WORD_CHAIN_CHANNEL_ID);
+      const winnerId = String(timedGame.last_player_id || "");
+      if (winnerId) this.ctx.storage.sql.exec(
+        "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 1, 0, 0) ON CONFLICT(user_id) DO UPDATE SET wins = wins + 1",
+        winnerId
+      );
+      await this.sendWordChainMessage(WORD_CHAIN_CHANNEL_ID,
+        "⏰ Hết 30 giây! Ván nối từ đã kết thúc. " + (winnerId ? "<@" + winnerId + "> thắng vì là người nối hợp lệ cuối cùng." : "Không có người thắng.") + " Dùng /noitu start để chơi ván mới."
+      );
+    }
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {
       try { this.ws.close(4000, "Scheduled gateway rotation"); } catch {}
       this.ws = null;
@@ -464,6 +479,7 @@ export class DiscordGateway {
       nextTail, JSON.stringify(used), userId, now, channelId);
     this.ctx.storage.sql.exec(
       "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 0, 0, 1) ON CONFLICT(user_id) DO UPDATE SET moves = moves + 1", userId);
+    await this.ctx.storage.setAlarm(now + WORD_CHAIN_TURN_MS);
     await this.sendWordChainMessage(channelId, "✅ **" + phrase + "**\n🔗 Từ tiếp theo phải bắt đầu bằng: **" + nextTail + "**  ·  <@" + userId + "> đã nối thành công!");
   }
 

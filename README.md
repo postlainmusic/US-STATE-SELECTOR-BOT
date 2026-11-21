@@ -16,11 +16,11 @@ A serverless Discord interaction bot for a one-state-per-member role selector.
 - Moderation utilities: `/purge`, `/slowmode`, `/lock`, `/unlock` (permission-gated).
 - Community workflows: `/feedback send`, `/noti send` (Admin selects a text or announcement channel as the destination).
 - Voice Assistant: `/join`, `/leave`, `/speak`, `/voice status`, `/voice stop` with 12 languages and male/female voices.
-- POSTLAIN Community Assistant detects support topics in permitted channels, responds in Vietnamese or English, asks one clarifying question, and routes safety reports to the private Staff room. Ordinary chat is ignored. New-member greetings are handled by Carl-bot.
+- POSTLAIN responds only to explicit Discord interactions: slash commands and interactive components (such as the State Selector). It does not subscribe to chat-message or message-content Gateway intents and never auto-replies to ordinary messages. New-member greetings are handled by Carl-bot.
 
 ## Architecture
 
-Discord Interactions Endpoint and a Cloudflare Durable Object Gateway handle commands and live community messages. The Gateway uses a structured multilingual support engine with topic priorities, built-in guidance, and 15-minute support sessions. Sessions store only category and message references, never message history or message content. Members can reply `staff` during an active session to request human help. Safety reports are forwarded to the configured private Staff room. Staff, moderation, ticket and private rooms are excluded from message reading.
+Discord Interactions Endpoint handles slash commands and component interactions. The optional Durable Object Gateway is restricted to the GUILDS intent only; it does not subscribe to GUILD_MESSAGES or MESSAGE_CONTENT and does not read or respond to ordinary chat messages. Support requests must be submitted explicitly through the available slash commands.
 
 The optional Voice Assistant runs as a separate Node.js 22.12+ service. Cloudflare Workers continue to handle slash commands; the voice service uses discord.js and the DAVE-capable `@discordjs/voice` 0.19 line for real-time voice connections. Text-to-speech uses the Edge TTS command-line client with selectable male/female neural voices in 12 languages. The service is protected by a shared secret and should be exposed through Cloudflare Tunnel, not a public unauthenticated port.
 

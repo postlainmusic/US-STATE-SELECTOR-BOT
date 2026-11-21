@@ -395,7 +395,26 @@ export class DiscordGateway {
   async replyToMention(message, rawContent) {
     const userId = message.author?.id;
     const now = Date.now();
-    if (!userId || now - (this.lastMentionReplyAt.get(userId) || 0) < 15000) return;
+    if (!userId) return;
+    const lastReplyAt = this.lastMentionReplyAt.get(userId) || 0;
+    if (now - lastReplyAt < 5000) {
+      const waitResponse = await fetch(`${DISCORD_API}/channels/${message.channel_id}/messages`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          content: "Tao đang xử lý tin nhắn vừa rồi. Chờ tao vài giây rồi hỏi tiếp nhé!",
+          message_reference: { message_id: message.id, fail_if_not_exists: false },
+          allowed_mentions: { parse: [] }
+        })
+      });
+      if (!waitResponse.ok) {
+        console.error("POSTLAIN AI cooldown notice failed:", waitResponse.status, (await waitResponse.text()).slice(0, 300));
+      }
+      return;
+    }
     this.lastMentionReplyAt.set(userId, now);
     const question = rawContent.replace(/<@!?\d+>/g, "").trim();
     if (!question) return;

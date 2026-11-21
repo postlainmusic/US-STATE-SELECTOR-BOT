@@ -189,12 +189,12 @@ export class DiscordGateway {
           d: { token: this.env.DISCORD_BOT_TOKEN, session_id: this.sessionId, seq: this.seq }
         });
       } else {
-        // GUILDS + GUILD_MESSAGES + MESSAGE_CONTENT.
+        // GUILDS only. Chat message and message-content events are intentionally disabled.
         this.send({
           op: 2,
           d: {
             token: this.env.DISCORD_BOT_TOKEN,
-            intents: 33281,
+            intents: 1,
             properties: { os: "cloudflare-workers", browser: "postlain-community-assistant", device: "postlain-community-assistant" }
           }
         });
@@ -242,9 +242,7 @@ export class DiscordGateway {
     } else if (packet.t === "CHANNEL_CREATE" || packet.t === "CHANNEL_UPDATE" || packet.t === "THREAD_CREATE") {
       this.channelNames.set(packet.d.id, packet.d.name || "");
       if (packet.d.parent_id) this.channelParents.set(packet.d.id, packet.d.parent_id);
-    } else if (packet.t === "MESSAGE_CREATE") {
-      await this.handleMessage(packet.d);
-    }
+    }    }
   }
 
   startHeartbeat() {

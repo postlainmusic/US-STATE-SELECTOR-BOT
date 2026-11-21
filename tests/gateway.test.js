@@ -16,9 +16,9 @@ test("excludes staff, moderation and private rooms", () => {
 
 test("routes common Vietnamese help phrases with accents and without accents", () => {
   assert.equal(classifySupportMessage("Mọi người ơi, cho mình hỏi chọn bang ở đâu?")?.key, "state-role");
-  assert.equal(classifySupportMessage("co ai biet cach verify khong")?.key, "verification-role");
+  assert.equal(classifySupportMessage("co ai biet cach verify khong")?.key, "verification-access");
   assert.equal(classifySupportMessage("Cho mình hỏi, Discord bị lỗi đăng nhập")?.key, "discord-account");
-  assert.equal(classifySupportMessage("Help, mic voice không hoạt động")?.key, "music-audio");
+  assert.equal(classifySupportMessage("Help, mic voice không hoạt động")?.key, "voice-audio");
   assert.equal(classifySupportMessage("Mình cần report spam")?.key, "safety-report");
   assert.equal(classifySupportMessage("Cho mình hỏi cách gửi góp ý")?.key, "feedback");
 });
@@ -66,4 +66,6 @@ test("marks safety reports for private Staff escalation", () => {
 
 test("avoids common Vietnamese word collisions", () => {
   assert.equal(classifySupportMessage("Bạn nhắc mình sau nhé"), null);
+  assert.equal(classifySupportMessage("I love music"), null);
+  assert.equal(classifySupportMessage("We have an event tomorrow"), null);
 });

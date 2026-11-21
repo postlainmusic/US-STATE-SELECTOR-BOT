@@ -1,4 +1,4 @@
-name: POSTLAIN AI Tests
+name: POSTLAIN Support Tests
 
 on:
   push:

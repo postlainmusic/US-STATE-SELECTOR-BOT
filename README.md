@@ -162,7 +162,7 @@ Push to `main`; GitHub Actions deploys the Worker.
 - Discord role hierarchy must allow the bot to manage every state role.
 - Keep all tokens in Worker secrets / GitHub Actions secrets. Never commit them.
 - Configure `SUPPORT_STAFF_CHANNEL_ID` to a private channel visible only to Staff and the bot.
-- The bot needs View Channel / Send Messages in public support channels; Manage Roles for State Selector; Add Reactions for polls; Manage Messages for `/purge`; and Manage Channels for `/slowmode`, `/lock`, and `/unlock`.
+- The bot needs View Channel / Send Messages in public support channels; Manage Roles for State Selector; Add Reactions for polls; Manage Messages for `/purge`; and Manage Channels for `/slowmode`, and Manage Roles for `/lock` and `/unlock`.
 - `/lock` and `/unlock` support text and announcement channels. `/purge` skips messages older than 14 days, as required by Discord's bulk-delete API.
 - Enable the Message Content privileged intent in the Discord Developer Portal for proactive message support.
 - Discord member roles remain the source of truth for state selection. The Durable Object SQLite database stores only short-lived reply-rate-limit metadata, not message content or chat history.

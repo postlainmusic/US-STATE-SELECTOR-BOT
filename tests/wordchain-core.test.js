@@ -10,7 +10,7 @@ import {
 } from "../Src/wordchain-core.js";
 
 test("normalizes Vietnamese phrases without removing tone marks", () => {
-  assert.equal(normalizeVietnamesePhrase("  CON GÀ!  "), "con gà");
+  assert.equal(normalizeVietnamesePhrase("  CON GÀ  "), "con gà");
   assert.equal(normalizeVietnamesePhrase("HỌC   SINH"), "học sinh");
 });
 

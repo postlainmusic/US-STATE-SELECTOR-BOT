@@ -20,6 +20,17 @@ const commands = [
     }]
   },
   {
+    name: "ask",
+    description: "Ask POSTLAIN AI a question",
+    dm_permission: false,
+    options: [{
+      type: 3,
+      name: "question",
+      description: "Your question for POSTLAIN AI",
+      required: true
+    }]
+  },
+  {
     name: "feedback",
     description: "Submit feedback to the admin team",
     dm_permission: false,

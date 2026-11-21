@@ -1,3 +1,5 @@
+import { generateAnswer } from "./ai/engine.js";
+
 const API = "https://discord.com/api/v10";
 
 const REGIONS = [
@@ -160,6 +162,34 @@ async function handleInteraction(interaction, env, ctx) {
   if (interaction.type === 2) {
     const command = interaction.data?.name;
     const subcommand = interaction.data?.options?.[0]?.name;
+
+    // AI chat command: chat-only in Phase 1, with sequential provider fallback.
+    if (command === "ask") {
+      const permissions = BigInt(interaction.member?.permissions || "0");
+      const isAdmin = (permissions & 8n) === 8n;
+      if (!isAdmin) {
+        return json({ type: 4, data: { content: "⛔ POSTLAIN AI đang trong giai đoạn thử nghiệm và hiện chỉ dành cho Admin.", flags: 64 } });
+      }
+      const question = interaction.data?.options?.find(option => option.name === "question")?.value;
+      if (typeof question !== "string" || !question.trim()) {
+        return json({ type: 4, data: { content: "Hãy nhập câu hỏi cho POSTLAIN AI.", flags: 64 } });
+      }
+      if (question.length > 1800) {
+        return json({ type: 4, data: { content: "Câu hỏi vượt quá giới hạn 1.800 ký tự.", flags: 64 } });
+      }
+      const deferred = json({ type: 5, data: { flags: 64 } });
+      const work = (async () => {
+        try {
+          const answer = await generateAnswer(env, question);
+          await editInteractionResponse(env, interaction, answer.slice(0, 1850));
+        } catch (error) {
+          console.error("POSTLAIN AI request failed:", error);
+          await editInteractionResponse(env, interaction, `⚠️ ${String(error.message || "AI request failed").slice(0, 700)}`);
+        }
+      })();
+      ctx.waitUntil(work);
+      return deferred;
+    }
 
     // Community feedback relay: accept feedback only from the designated room.
     if (command === "feedback" && subcommand === "send") {

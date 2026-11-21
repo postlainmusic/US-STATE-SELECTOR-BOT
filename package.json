@@ -5,7 +5,8 @@
   "type": "module",
   "scripts": {
     "register-commands": "node scripts/register-commands.js",
-    "deploy": "wrangler deploy"
+    "deploy": "wrangler deploy",
+    "test": "node --test"
   },
   "devDependencies": {
     "wrangler": "^4.0.0"

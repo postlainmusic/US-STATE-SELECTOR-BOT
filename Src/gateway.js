@@ -75,6 +75,16 @@ export class DiscordGateway {
         user_id TEXT PRIMARY KEY, wins INTEGER NOT NULL DEFAULT 0,
         losses INTEGER NOT NULL DEFAULT 0, moves INTEGER NOT NULL DEFAULT 0
       )`);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS word_chain_custom_words (
+        phrase TEXT PRIMARY KEY, added_by TEXT NOT NULL, added_at INTEGER NOT NULL
+      )`);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS word_chain_suggestions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, phrase TEXT NOT NULL,
+        submitted_by TEXT NOT NULL, submitted_at INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending'
+      )`);
 
   }
 

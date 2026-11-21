@@ -1,4 +1,3 @@
-import { generateAnswer } from "./ai/engine.js";
 import { DiscordGateway } from "./gateway.js";
 
 export { DiscordGateway };
@@ -154,37 +153,6 @@ async function editInteractionResponse(env, interaction, content) {
   }
 }
 
-function splitDiscordMessage(value, maxLength = 1900) {
-  let remaining = String(value || "").trim();
-  if (!remaining) return ["POSTLAIN AI chưa tạo được câu trả lời."];
-  const chunks = [];
-  while (remaining.length > maxLength) {
-    let cut = remaining.lastIndexOf("\n", maxLength);
-    if (cut < maxLength * 0.5) cut = remaining.lastIndexOf(" ", maxLength);
-    if (cut < maxLength * 0.5) cut = maxLength;
-    chunks.push(remaining.slice(0, cut).trim());
-    remaining = remaining.slice(cut).trimStart();
-  }
-  if (remaining) chunks.push(remaining);
-  return chunks;
-}
-
-async function sendAIResponse(env, interaction, answer) {
-  const chunks = splitDiscordMessage(answer);
-  await editInteractionResponse(env, interaction, chunks[0]);
-  for (const chunk of chunks.slice(1)) {
-    const response = await fetch(`${API}/webhooks/${env.DISCORD_APPLICATION_ID}/${interaction.token}`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ content: chunk, flags: 64, allowed_mentions: { parse: [] } })
-    });
-    if (!response.ok) {
-      const body = await response.text();
-      console.error("Could not send POSTLAIN AI continuation:", response.status, body);
-      break;
-    }
-  }
-}
 function isManageRoles(interaction) {
   const permissions = BigInt(interaction.member?.permissions || "0");
   return (permissions & 268435456n) === 268435456n;
@@ -195,106 +163,12 @@ function isAdmin(interaction) {
   return (permissions & 8n) === 8n;
 }
 
-function isKnowledgeEntry(message, env) {
-  return message?.author?.id === env.DISCORD_APPLICATION_ID && message?.embeds?.[0]?.title === "POSTLAIN KNOWLEDGE";
-}
-
-async function loadKnowledge(env) {
-  if (!env.KNOWLEDGE_CHANNEL_ID) return "";
-  const messages = await discord(`/channels/${env.KNOWLEDGE_CHANNEL_ID}/messages?limit=100`, env);
-  const entries = messages.filter(message => isKnowledgeEntry(message, env)).slice(0, 10).reverse();
-  return entries.map((message, index) => {
-    const embed = message.embeds[0];
-    const topic = embed.fields?.find(field => field.name === "Topic")?.value || "General";
-    return `${index + 1}. [${topic}] ${embed.description || ""}`;
-  }).join("\n").slice(0, 12000);
-}
-
-async function handleKnowledgeCommand(interaction, env) {
-  if (!isAdmin(interaction)) return json({ type: 4, data: { content: "⛔ Chỉ Admin mới được quản lý kiến thức POSTLAIN.", flags: 64 } });
-  if (!env.KNOWLEDGE_CHANNEL_ID) return json({ type: 4, data: { content: "⚙️ Chưa cấu hình KNOWLEDGE_CHANNEL_ID trong Cloudflare Worker Variables.", flags: 64 } });
-  const subcommand = interaction.data?.options?.[0]?.name;
-  const options = interaction.data?.options?.[0]?.options || [];
-  if (subcommand === "add") {
-    const topic = String(options.find(option => option.name === "topic")?.value || "General").trim().slice(0, 80);
-    const content = String(options.find(option => option.name === "content")?.value || "").trim();
-    if (!content || content.length > 1500) return json({ type: 4, data: { content: "Nội dung phải có từ 1 đến 1.500 ký tự.", flags: 64 } });
-    await discord(`/channels/${env.KNOWLEDGE_CHANNEL_ID}/messages`, env, { method: "POST", body: JSON.stringify({ embeds: [{ title: "POSTLAIN KNOWLEDGE", description: content, fields: [{ name: "Topic", value: topic || "General" }], footer: { text: "POSTLAIN AI · Server Knowledge" }, timestamp: new Date().toISOString() }], allowed_mentions: { parse: [] } }) });
-    return json({ type: 4, data: { content: `✅ Đã lưu kiến thức **${topic || "General"}** cho POSTLAIN AI.`, flags: 64 } });
-  }
-  if (subcommand === "list") {
-    const messages = await discord(`/channels/${env.KNOWLEDGE_CHANNEL_ID}/messages?limit=100`, env);
-    const entries = messages.filter(message => isKnowledgeEntry(message, env)).slice(0, 15);
-    const lines = entries.map(message => { const topic = message.embeds[0].fields?.find(field => field.name === "Topic")?.value || "General"; return `• **${topic}** · ID: \`${message.id}\``; });
-    return json({ type: 4, data: { content: lines.length ? `**POSTLAIN KNOWLEDGE · ${lines.length} mục gần nhất**\n${lines.join("\n")}` : "Chưa có kiến thức nào được lưu.", flags: 64 } });
-  }
-  if (subcommand === "remove") {
-    const messageId = String(options.find(option => option.name === "entry_id")?.value || "").trim();
-    if (!/^\d{17,20}$/.test(messageId)) return json({ type: 4, data: { content: "Entry ID không hợp lệ. Dùng /knowledge list để lấy ID.", flags: 64 } });
-    const message = await discord(`/channels/${env.KNOWLEDGE_CHANNEL_ID}/messages/${messageId}`, env);
-    if (!isKnowledgeEntry(message, env)) return json({ type: 4, data: { content: "Không tìm thấy mục kiến thức hợp lệ để xóa.", flags: 64 } });
-    await discord(`/channels/${env.KNOWLEDGE_CHANNEL_ID}/messages/${messageId}`, env, { method: "DELETE" });
-    return json({ type: 4, data: { content: "🗑️ Đã xóa mục kiến thức.", flags: 64 } });
-  }
-  return json({ type: 4, data: { content: "Lệnh kiến thức không hợp lệ.", flags: 64 } });
-}
-
 async function handleInteraction(interaction, env, ctx) {
   if (interaction.type === 1) return json({ type: 1 });
 
   if (interaction.type === 2) {
     const command = interaction.data?.name;
     const subcommand = interaction.data?.options?.[0]?.name;
-
-    // AI chat command: chat-only in Phase 1, with sequential provider fallback.
-    if (command === "ask") {
-      const question = interaction.data?.options?.find(option => option.name === "question")?.value;
-      if (typeof question !== "string" || !question.trim()) {
-        return json({ type: 4, data: { content: "Hãy nhập câu hỏi cho POSTLAIN AI.", flags: 64 } });
-      }
-      if (question.length > 1800) {
-        return json({ type: 4, data: { content: "Câu hỏi vượt quá giới hạn 1.800 ký tự.", flags: 64 } });
-      }
-      const deferred = json({ type: 5, data: { flags: 64 } });
-      const work = (async () => {
-        try {
-          const knowledge = await loadKnowledge(env);
-          let conversationContext = "";
-          try {
-            const gatewayId = env.GATEWAY.idFromName("postlain-ai-gateway");
-            const memoryResponse = await env.GATEWAY.get(gatewayId).fetch(
-              `https://gateway/context?channel_id=${encodeURIComponent(interaction.channel_id || "")}`
-            );
-            if (memoryResponse.ok) conversationContext = (await memoryResponse.json()).context || "";
-          } catch (memoryError) {
-            console.warn("POSTLAIN AI memory context unavailable:", String(memoryError?.message || memoryError).slice(0, 250));
-          }
-          const answer = await generateAnswer(env, question, knowledge, conversationContext);
-          await sendAIResponse(env, interaction, answer);
-        } catch (error) {
-          console.error("POSTLAIN AI request failed:", String(error?.message || error), error?.stack || "");
-          await editInteractionResponse(env, interaction, `⚠️ ${String(error.message || "AI request failed").slice(0, 700)}`);
-        }
-      })();
-      ctx.waitUntil(work);
-      return deferred;
-    }
-
-    if (command === "knowledge") {
-      const deferred = json({ type: 5, data: { flags: 64 } });
-      const work = (async () => {
-        try {
-          const result = await handleKnowledgeCommand(interaction, env);
-          const payload = await result.json();
-          await editInteractionResponse(env, interaction, payload.data?.content || "Đã xử lý xong.");
-        } catch (error) {
-          console.error("POSTLAIN knowledge command failed:", error);
-          await editInteractionResponse(env, interaction, "⚠️ Không thể xử lý kho kiến thức. Kiểm tra quyền bot trong phòng knowledge.");
-        }
-      })();
-      ctx.waitUntil(work);
-      return deferred;
-    }
 
     // Community feedback relay: accept feedback only from the designated room.
     if (command === "feedback" && subcommand === "send") {

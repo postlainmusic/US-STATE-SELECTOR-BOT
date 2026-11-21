@@ -6,14 +6,24 @@ export function normalizeVietnamesePhrase(value) {
     .replace(/\s+/gu, " ");
 }
 
-export function parseTwoSyllablePhrase(value) {
+export function parseTwoSyllablePhrase(value, language = "vi") {
   const phrase = normalizeVietnamesePhrase(value);
-  if (!phrase || phrase.length > 80) return { ok: false, code: "empty" };
+  if (!phrase || phrase.length > 80) return { ok: false, code: "empty", language };
   const parts = phrase.split(" ");
-  if (parts.length !== 2 || parts.some(part => !/^\p{L}+$/u.test(part))) {
-    return { ok: false, code: "format", phrase, parts };
+  const validToken = language === "en" ? /^[a-z]+$/u : /^\p{L}+$/u;
+  if (parts.length !== 2 || parts.some(part => !validToken.test(part))) {
+    return { ok: false, code: "format", phrase, parts, language };
   }
-  return { ok: true, phrase, first: parts[0], last: parts[1] };
+  return { ok: true, phrase, first: parts[0], last: parts[1], language };
+}
+
+export function classifyWordChainPhrase(value, dictionary, customDictionary = new Set(), language = "vi") {
+  const parsed = parseTwoSyllablePhrase(value, language);
+  if (!parsed.ok) return { ...parsed, verdict: "invalid" };
+  if (dictionary.has(parsed.phrase) || customDictionary.has(parsed.phrase)) {
+    return { ...parsed, ok: true, verdict: "accepted" };
+  }
+  return { ...parsed, ok: false, code: "not_found", verdict: "unverified" };
 }
 
 export function validateDictionaryPhrase(value, dictionary, customDictionary = new Set()) {

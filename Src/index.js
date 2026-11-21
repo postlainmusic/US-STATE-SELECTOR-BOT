@@ -1,4 +1,5 @@
 import { DiscordGateway } from "./gateway.js";
+import { handleVoiceCommand } from "./voice.js";
 
 export { DiscordGateway };
 
@@ -229,6 +230,8 @@ async function handleInteraction(interaction, env, ctx) {
   if (interaction.type === 2) {
     const command = interaction.data?.name;
     const subcommand = interaction.data?.options?.[0]?.name;
+    const voiceResponse = await handleVoiceCommand(interaction, env, ctx);
+    if (voiceResponse) return voiceResponse;
 
     // Community feedback relay: accept feedback only from the designated room.
     if (command === "feedback" && subcommand === "send") {
@@ -347,6 +350,7 @@ async function handleInteraction(interaction, env, ctx) {
             description: "Một bộ công cụ cho thành viên và đội ngũ quản trị.",
             fields: [
               { name: "🙋 Thành viên", value: "`/help` · `/ping` · `/serverinfo` · `/userinfo` · `/avatar` · `/report send` · `/poll create` · `/coinflip` · `/roll` · `/choose`", inline: false },
+              { name: "🔊 Voice Assistant", value: "`/join` · `/leave` · `/speak` · `/voice status` · `/voice stop`", inline: false },
               { name: "🗺️ Cộng đồng", value: "`/statepanel publish` · `/feedback send`", inline: false },
               { name: "🛡️ Quản trị", value: "`/noti send` · `/purge` · `/slowmode` · `/lock` · `/unlock`", inline: false }
             ],

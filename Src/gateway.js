@@ -6,27 +6,8 @@ const DEFAULT_EXCLUDED_CHANNELS = new Set([
 const PRIVATE_NAME = /(^|[-_ ])(staff|admin|moderation|modlog|mod-logs|ticket|private|internal)([-_ ]|$)/i;
 const MAX_MESSAGE_LENGTH = 1800;
 
-function normalizeSupportText(value) {
-  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-}
-export function classifySupportMessage(content) {
-  const raw = String(content || "").trim();
-  if (raw.length < 3 || raw.length > MAX_MESSAGE_LENGTH) return null;
-  const text = normalizeSupportText(raw);
-  const asks = /\b(cho minh hoi|cho hoi|cho tui hoi|giup minh|giup voi|can giup|minh can|can hoi|ai giup|chi minh|minh bi|xin giup|khong hieu|help|need help|anyone know|co ai biet|ai biet|hoi chut|hoi xiu|report|bao cao|co van de|loi|error|bug|khong duoc|khong hoat dong|khong thay|o dau|lam sao|the nao|cach nao|tai sao|vi sao|sao lai|huong dan|support|ho tro)\b/.test(text);
-  if (!asks) return null;
-  if (/(chon bang|tieu bang|doi bang|role bang|state)/.test(text)) return { key: "state-role", response: "🗺️ **Vụ chọn bang / State Role**\nMở phòng có bảng chọn bang của server, bấm danh sách và chọn bang mày đang sống. Bot sẽ tự cập nhật role, bang cũ được thay thế. Nếu bảng không hiện, chọn không được hoặc role không đổi, gửi ảnh màn hình kèm tên bang để staff kiểm tra nhé." };
-  if (/(verify|verification|xac minh|xac thuc|duyet thanh vien|cap role|nhan role|role member|vai tro|quyen truy cap|khong vao duoc kenh)/.test(text)) return { key: "verification-role", response: "🔐 **Vấn đề xác minh / nhận role**\nKiểm tra phòng hướng dẫn xác minh và làm đúng bước được ghim ở đó. Nếu đã xác minh mà vẫn không thấy phòng hoặc chưa có role, gửi ảnh màn hình và nói rõ bước bị kẹt để staff kiểm tra quyền nhé. Đừng gửi mật khẩu hay mã đăng nhập." };
-  if (/(discord|tai khoan|dang nhap|mat khau|ma xac minh|nitro|ung dung|app|dien thoai|may tinh)/.test(text)) return { key: "discord-account", response: "🛠️ **Sự cố Discord / tài khoản**\nThử cập nhật Discord, đóng mở lại ứng dụng và kiểm tra kết nối. Nếu vẫn lỗi, gửi ảnh hoặc nguyên văn thông báo lỗi, cho biết đang dùng Android, iPhone hay máy tính. Nhớ che email, số điện thoại và thông tin riêng tư." };
-  if (/(nghe nhac|phat nhac|music|audio|voice|mic|micro|tai nghe|loa)/.test(text)) return { key: "music-audio", response: "🎧 **Hỗ trợ âm thanh / âm nhạc**\nKiểm tra đúng voice channel, âm lượng Discord và quyền truy cập micro/âm thanh của ứng dụng. Nếu vẫn có vấn đề, nói rõ là không nghe được nhạc, không vào voice, mic không hoạt động hay bị rè, kèm thiết bị đang dùng." };
-  if (/(bao cao|report|vi pham|spam|quay roi|bat nat|cong kich|lua dao|scam|donate lua|noi dung doc hai|mod|moderator|admin)/.test(text)) return { key: "safety-report", response: "🛡️ **Báo cáo sự cố / hành vi vi phạm**\nĐừng đôi co hoặc công khai thông tin riêng tư. Gửi bằng chứng, link tin nhắn và mô tả ngắn cho Moderator/Staff qua kênh hỗ trợ phù hợp. Nếu có nguy cơ mất an toàn, báo staff ngay." };
-  if (/(gop y|de xuat|y tuong|phan hoi|feedback|kien nghi)/.test(text)) return { key: "feedback", response: "📮 **Gửi góp ý cho POSTLAIN**\nVào phòng góp ý và dùng /feedback send để gửi nội dung. Góp ý sẽ được chuyển đến hộp thư quản trị. Cứ nói rõ vấn đề, đề xuất và lý do, càng cụ thể càng dễ xử lý." };
-  if (/(luat|noi quy|quy dinh|rules|bi cam|bi ban|mute|kick)/.test(text)) return { key: "server-rules", response: "📜 **Nội quy server**\nTìm phòng nội quy / rules và đọc các thông báo được ghim trước nhé. Nếu có điều khoản chưa rõ hoặc nghĩ rằng mình bị xử lý nhầm, hỏi Moderator/Staff và gửi kèm ngữ cảnh liên quan." };
-  if (/(loi|error|bug|khong duoc|khong hoat dong|khong thay|crash|treo|ket noi|connection|timeout)/.test(text)) return { key: "technical-issue", response: "🧰 **Tiếp nhận lỗi kỹ thuật**\nĐể khoanh vùng nhanh, gửi giúp: (1) mày đang thao tác gì, (2) kết quả mong muốn, (3) chuyện gì thực sự xảy ra, (4) ảnh hoặc nguyên văn lỗi, (5) thiết bị đang dùng. Đừng gửi mật khẩu, token hay mã xác thực." };
-  return { key: "general-help", response: "🙋 **POSTLAIN Support đã nhận tín hiệu!**\nMày đang cần hỗ trợ gì? Viết rõ vấn đề, đang ở phòng nào và điều gì chưa hoạt động. Nếu có lỗi, gửi ảnh hoặc nguyên văn thông báo. Staff sẽ vào xử lý những việc cần quyền quản trị." };
-}
-export function isHelpRequest(content) { return Boolean(classifySupportMessage(content)); }
-export function isProactiveCandidate(content) { return Boolean(classifySupportMessage(content)); }
+export { classifySupportMessage, isHelpRequest, isProactiveCandidate } from "./support/engine.js";
+import { classifySupportMessage } from "./support/engine.js";
 
 function parseIds(value) {
   return String(value || "").split(",").map(x => x.trim()).filter(Boolean);
@@ -197,7 +178,7 @@ export class DiscordGateway {
           d: {
             token: this.env.DISCORD_BOT_TOKEN,
             intents: 33281,
-            properties: { os: "cloudflare-workers", browser: "postlain-ai", device: "postlain-ai" }
+            properties: { os: "cloudflare-workers", browser: "postlain-community-assistant", device: "postlain-community-assistant" }
           }
         });
       }

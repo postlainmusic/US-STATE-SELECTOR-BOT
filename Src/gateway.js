@@ -335,10 +335,22 @@ export class DiscordGateway {
   }
 
   async handleMessage(message) {
-    const guildId = this.env.DISCORD_GUILD_ID;
-    if (!shouldStoreMessage(message, guildId, (channelId, msg) => this.isExcluded(channelId, msg))) return;
+    const guildId = String(this.env.DISCORD_GUILD_ID || "");
+    if (!message || String(message.guild_id || "") !== guildId) return;
+    if (!message.channel_id || message.author?.bot || message.webhook_id) return;
+    if (this.isExcluded(message.channel_id, message)) return;
 
     const content = String(message.content || "").trim().slice(0, MAX_MESSAGE_LENGTH);
+    if (!content) return;
+
+    const botId = String(this.env.DISCORD_BOT_USER_ID || "");
+    const mentionInPayload = Array.isArray(message.mentions) &&
+      message.mentions.some(user => String(user.id) === botId);
+    const mentionInContent = botId
+      ? new RegExp(`<@!?\\${botId}>`).test(content)
+      : false;
+    const mentioned = Boolean(botId && (mentionInPayload || mentionInContent));
+
     const channelName = this.channelNames.get(message.channel_id) || "community";
     const authorName = message.member?.nick || message.author?.global_name || message.author?.username || "Member";
     const createdAt = Date.parse(message.timestamp || new Date().toISOString());
@@ -349,11 +361,17 @@ export class DiscordGateway {
     this.ctx.storage.sql.exec("DELETE FROM community_messages WHERE created_at < ?", Date.now() - RETENTION_MS);
     this.ctx.storage.sql.exec("DELETE FROM community_messages WHERE id IN (SELECT id FROM community_messages ORDER BY created_at DESC LIMIT -1 OFFSET 1500)");
 
-    const botId = this.env.DISCORD_BOT_USER_ID || this.env.DISCORD_APPLICATION_ID;
-    const mentioned = Array.isArray(message.mentions) && message.mentions.some(user => user.id === botId);
-    if (mentioned && botId && content) await this.replyToMention(message, content);
+    if (mentioned) {
+      console.log("POSTLAIN AI mention detected", {
+        channelId: message.channel_id,
+        authorId: message.author?.id,
+        botId,
+        mentionInPayload,
+        mentionInContent
+      });
+      await this.replyToMention(message, content);
+    }
   }
-
   getContext(channelId = "") {
     const channelRows = channelId
       ? this.ctx.storage.sql.exec(

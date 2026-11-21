@@ -449,16 +449,6 @@ export class DiscordGateway {
     let row = this.ctx.storage.sql.exec("SELECT * FROM word_chain_games WHERE channel_id = ? AND active = 1", channelId).toArray()[0];
     // No slash command is needed: the first valid phrase automatically opens a new round.
     if (!row) {
-      const previous = this.ctx.storage.sql.exec(
-        "SELECT last_player_id, last_move_at FROM word_chain_games WHERE channel_id = ?",
-        channelId
-      ).toArray()[0];
-      if (previous?.last_player_id && previous.last_move_at && now - Number(previous.last_move_at) >= WORD_CHAIN_TURN_MS) {
-        this.ctx.storage.sql.exec(
-          "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 1, 0, 0) ON CONFLICT(user_id) DO UPDATE SET wins = wins + 1",
-          String(previous.last_player_id)
-        );
-      }
       const used = [phrase];
       this.ctx.storage.sql.exec(
         "INSERT OR REPLACE INTO word_chain_games (channel_id, active, starter_id, current_tail, used_words, last_player_id, moves, last_move_at) VALUES (?, 1, ?, ?, ?, ?, 1, ?)",

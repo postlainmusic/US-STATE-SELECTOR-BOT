@@ -420,6 +420,12 @@ export class DiscordGateway {
       });
       await this.replyToMention(message, content);
     } else if (isProactiveCandidate(content)) {
+      console.log("POSTLAIN AI proactive candidate detected", {
+        channelId: message.channel_id,
+        messageId: message.id,
+        authorId: message.author?.id,
+        helpRequest: isHelpRequest(content)
+      });
       await this.replyProactively(message, content);
     }
   }
@@ -487,6 +493,26 @@ export class DiscordGateway {
       console.log("POSTLAIN AI proactive reply sent", { channelId: message.channel_id, messageId: message.id });
     } catch (error) {
       console.error("POSTLAIN AI proactive handler failed:", String(error?.message || error), error?.stack || "");
+      // Make provider/configuration failures visible instead of silently ignoring a member's question.
+      if (isHelpRequest(rawContent)) {
+        try {
+          const notice = await fetch(`${DISCORD_API}/channels/${message.channel_id}/messages`, {
+            method: "POST",
+            headers: {
+              Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}`,
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              content: "Tao nhận được câu hỏi rồi nhưng hệ thống AI đang lỗi, chưa trả lời được lúc này. Báo admin kiểm tra provider/API nhé. 😵‍💫",
+              message_reference: { message_id: message.id, fail_if_not_exists: false },
+              allowed_mentions: { parse: [] }
+            })
+          });
+          if (!notice.ok) console.error("POSTLAIN AI proactive error notice failed:", notice.status, (await notice.text()).slice(0, 300));
+        } catch (noticeError) {
+          console.error("POSTLAIN AI proactive error notice delivery failed:", String(noticeError?.message || noticeError));
+        }
+      }
     }
   }
 

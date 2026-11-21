@@ -469,7 +469,7 @@ export class DiscordGateway {
             "Content-Type": "application/json"
           },
           body: JSON.stringify({
-            content: "Tao đã nhận được câu hỏi, nhưng phần AI đang gặp lỗi tạm thời nên chưa trả lời được. Mày thử gửi lại sau ít phút nhé.",
+            content: `Tao đang bị lỗi AI thật rồi 😵‍💫\n\`${String(error?.message || "Unknown AI error").slice(0, 850)}\``,
             message_reference: { message_id: message.id, fail_if_not_exists: false },
             allowed_mentions: { parse: [] }
           })

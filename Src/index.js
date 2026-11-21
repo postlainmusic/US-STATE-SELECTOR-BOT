@@ -185,6 +185,19 @@ function ephemeral(content) {
   return json({ type: 4, data: { content, flags: 64, allowed_mentions: { parse: [] } } });
 }
 
+function gameResult(content) {
+  const hub = gameHubPanel();
+  return json({
+    type: 4,
+    data: {
+      content,
+      flags: 64,
+      components: hub.components,
+      allowed_mentions: { parse: [] }
+    }
+  });
+}
+
 function helpPanel(category = "games") {
   const sections = {
     games: {
@@ -581,7 +594,7 @@ async function handleInteraction(interaction, env, ctx) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, interactionId: String(interaction.id || "") })
       });
-      return ephemeral((await result.json()).message || "Chưa thể điểm danh lúc này.");
+      return gameResult((await result.json()).message || "Chưa thể điểm danh lúc này.");
     }
 
     if (command === "ngold") {
@@ -607,7 +620,7 @@ async function handleInteraction(interaction, env, ctx) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, animal, amount, interactionId: String(interaction.id || "") })
       });
-      return ephemeral((await result.json()).message || "Chưa thể chơi Bầu Cua lúc này.");
+      return gameResult((await result.json()).message || "Chưa thể chơi Bầu Cua lúc này.");
     }
 
     if (command === "xu-xi") {
@@ -620,7 +633,7 @@ async function handleInteraction(interaction, env, ctx) {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ userId, choice, amount, interactionId: String(interaction.id || "") })
       });
-      return ephemeral((await result.json()).message || "Chưa thể chơi Xù Xì lúc này.");
+      return gameResult((await result.json()).message || "Chưa thể chơi Xù Xì lúc này.");
     }
 
     if (command === "vtv") {
@@ -975,7 +988,7 @@ async function handleInteraction(interaction, env, ctx) {
                 custom_id: "vtv:closed",
                 disabled: true
               }]
-            }],
+            }, ...gameHubPanel().components],
             allowed_mentions: { parse: [] }
           }
         });

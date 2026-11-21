@@ -408,9 +408,10 @@ async function handleInteraction(interaction, env, ctx) {
           ]);
           const image = avatarUrl(user);
           if (command === "avatar") {
-            const hook = `${API}/webhooks/${env.DISCORD_APPLICATION_ID}/${interaction.token}/messages/@original`;
-            const response = await fetch(hook, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: image, allowed_mentions: { parse: [] } }) });
-            if (!response.ok) throw new Error(`Avatar response failed: ${response.status}`);
+            await editInteractionPayload(env, interaction, {
+              content: null,
+              embeds: [{ color: COLORS.accent, title: `Avatar · ${user.global_name || user.username || "Member"}`, image: { url: image } }]
+            });
             return;
           }
           const joined = member?.joined_at ? new Date(member.joined_at).toLocaleString("vi-VN") : "N/A";

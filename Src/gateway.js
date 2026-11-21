@@ -265,7 +265,9 @@ export class DiscordGateway {
       const questionId = String(payload.questionId || "");
       const correctIndex = Number(payload.correctIndex);
       if (!roundId || !questionId || !Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex > 3) return Response.json({ ok: false, message: "Dữ liệu câu hỏi không hợp lệ." }, { status: 400 });
-      this.ctx.storage.sql.exec("INSERT OR REPLACE INTO vtv_rounds (round_id, question_id, correct_index, resolved_by, created_at, resolved_at) VALUES (?, ?, ?, NULL, ?, NULL)", roundId, questionId, correctIndex, Date.now());
+      const now = Date.now();
+      this.ctx.storage.sql.exec("DELETE FROM vtv_rounds WHERE created_at < ?", now - 86400000);
+      this.ctx.storage.sql.exec("INSERT OR REPLACE INTO vtv_rounds (round_id, question_id, correct_index, resolved_by, created_at, resolved_at) VALUES (?, ?, ?, NULL, ?, NULL)", roundId, questionId, correctIndex, now);
       return Response.json({ ok: true });
     }
     if (url.pathname === "/games/vtv/answer" && request.method === "POST") {
@@ -285,7 +287,7 @@ export class DiscordGateway {
       this.ctx.storage.sql.exec("INSERT INTO vtv_scores (user_id, correct, attempts) VALUES (?, ?, 1) ON CONFLICT(user_id) DO UPDATE SET attempts = attempts + 1, correct = correct + ?", userId, correct ? 1 : 0, correct ? 1 : 0);
       if (!correct) return Response.json({ ok: true, correct: false, status: "wrong", message: "Chưa đúng rồi, thử lựa chọn khác nhé!" });
       this.ctx.storage.sql.exec("UPDATE vtv_rounds SET resolved_by = ?, resolved_at = ? WHERE round_id = ? AND resolved_by IS NULL", userId, now, roundId);
-      return Response.json({ ok: true, correct: true, status: "correct", message: "🎉 <@" + userId + "> trả lời chính xác!" });
+      return Response.json({ ok: true, correct: true, status: "correct", questionId: String(round.question_id), answerIndex: Number(round.correct_index), message: "🎉 <@" + userId + "> trả lời chính xác!" });
     }
     if (url.pathname === "/games/vtv/leaderboard" && request.method === "GET") {
       const rows = this.ctx.storage.sql.exec("SELECT user_id, correct, attempts FROM vtv_scores ORDER BY correct DESC, attempts ASC LIMIT 20").toArray();

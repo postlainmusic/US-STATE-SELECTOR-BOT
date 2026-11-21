@@ -12,7 +12,7 @@ A serverless Discord interaction bot for a one-state-per-member role selector.
 - All non-state roles are preserved.
 - `/statepanel publish` publishes the persistent component panel.
 - Member utilities: `/help`, `/ping`, `/serverinfo`, `/userinfo`, `/avatar`, `/report send`.
-- Community fun: `/poll create`, `/coinflip`, `/roll`, `/choose`.
+- Community fun: `/poll create`, `/coinflip`, `/roll`, `/choose`, `/noitu start`, `/noitu end`, `/noitu score`.
 - Moderation utilities: `/purge`, `/slowmode`, `/lock`, `/unlock` (permission-gated).
 - Community workflows: `/feedback send`, `/noti send` (Admin selects a text or announcement channel as the destination).
 - Voice Assistant: `/join`, `/leave`, `/speak`, `/voice status`, `/voice stop` with 12 languages and male/female voices.
@@ -20,7 +20,7 @@ A serverless Discord interaction bot for a one-state-per-member role selector.
 
 ## Architecture
 
-Discord Interactions Endpoint handles slash commands and component interactions. The optional Durable Object Gateway is restricted to the GUILDS intent only; it does not subscribe to GUILD_MESSAGES or MESSAGE_CONTENT and does not read or respond to ordinary chat messages. Support requests must be submitted explicitly through the available slash commands.
+Discord Interactions Endpoint handles slash commands and component interactions. The Durable Object Gateway subscribes to GUILDS, GUILD_MESSAGES and MESSAGE_CONTENT only to support the dedicated word-chain room. The message handler immediately filters to channel `1573644570997035100`; messages from every other channel are ignored. Support requests must be submitted explicitly through slash commands.
 
 The optional Voice Assistant runs as a separate Node.js 22.12+ service. Cloudflare Workers continue to handle slash commands; the voice service uses discord.js and the DAVE-capable `@discordjs/voice` 0.19 line for real-time voice connections. Text-to-speech uses the Edge TTS command-line client with selectable male/female neural voices in 12 languages. The service is protected by a shared secret and should be exposed through Cloudflare Tunnel, not a public unauthenticated port.
 
@@ -209,3 +209,13 @@ The Voice Engine exposes only an authenticated control API through the Tunnel. T
 - Enable the Message Content privileged intent in the Discord Developer Portal for proactive message support.
 - Discord member roles remain the source of truth for state selection. The Durable Object SQLite database stores only short-lived reply-rate-limit metadata, not message content or chat history.
 - If two state selections are submitted at exactly the same time, Discord's member-role updates are last-write-wins. For a very large/high-concurrency server, add a per-member serialized queue before expanding.
+
+## Vietnamese word-chain game
+
+- The game is restricted to channel `1573644570997035100`.
+- Use `/noitu start` to open a round, then players send Vietnamese phrases directly in that room.
+- Each move must be a 2–5-syllable phrase found in the bundled Viet11K lexicon, begin with the previous phrase's final syllable, and not have been used earlier in the same round.
+- The same player cannot make two consecutive valid moves. A 30-second inactivity timeout ends the round when another move is attempted.
+- A player who submits a repeated or incorrectly chained dictionary phrase loses; the previous valid player gets a win. Use `/noitu end` to stop a round (starter or Admin), and `/noitu score` for the top 10.
+- The lexicon is derived from duyet/vietnamese-wordlist and is subject to GPL-2.0; attribution and limitations are documented in `WORDLIST-LICENSE.md`. It is not exhaustive, so some regional or uncommon phrases may not be recognized.
+- **Discord Developer Portal requirement:** enable the privileged **Message Content Intent** for the bot. No Presence or Members intent is needed for this game.

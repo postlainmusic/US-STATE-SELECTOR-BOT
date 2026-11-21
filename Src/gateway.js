@@ -338,8 +338,10 @@ export class DiscordGateway {
     if (!support) return;
     const authorId = String(message.author?.id || "");
     if (!authorId || !this.canSendProactive(message.channel_id, authorId)) return;
-    console.log("POSTLAIN support keyword detected", { category: support.key, channelId: message.channel_id, messageId: message.id });
-    await this.replyWithSupport(message, support.response);
+    console.log("POSTLAIN support topic detected", { category: support.key, channelId: message.channel_id, messageId: message.id });
+    const reply = [support.response, support.followUp].filter(Boolean).join("\n\n");
+    await this.replyWithSupport(message, reply);
+    if (support.requiresStaff) await this.notifyStaff(message, support.key);
   }
 
   canSendProactive(channelId, authorId, now = Date.now()) {
@@ -371,6 +373,46 @@ export class DiscordGateway {
     this.ctx.storage.sql.exec("INSERT OR REPLACE INTO proactive_replies (id, channel_id, author_id, created_at) VALUES (?, ?, ?, ?)", message.id, message.channel_id, authorId, now);
     this.ctx.storage.sql.exec("DELETE FROM proactive_replies WHERE created_at < ?", now - 24 * 60 * 60 * 1000);
     console.log("POSTLAIN support reply sent", { channelId: message.channel_id, messageId: message.id });
+  }
+
+  async notifyStaff(message, category) {
+    const staffChannelId = String(this.env.SUPPORT_STAFF_CHANNEL_ID || "");
+    const authorId = String(message.author?.id || "");
+    if (!staffChannelId || !authorId) return false;
+    const excerpt = String(message.content || "").trim().slice(0, 900) || "(no text content)";
+    const jumpUrl = "https://discord.com/channels/" + this.env.DISCORD_GUILD_ID + "/" + message.channel_id + "/" + message.id;
+    try {
+      const response = await fetch(DISCORD_API + "/channels/" + staffChannelId + "/messages", {
+        method: "POST",
+        headers: { Authorization: "Bot " + this.env.DISCORD_BOT_TOKEN, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          embeds: [{
+            color: 0xE05D5D,
+            title: "🛡️ COMMUNITY SUPPORT ESCALATION",
+            description: "A member submitted a safety report that needs Staff review.",
+            fields: [
+              { name: "Category", value: String(category), inline: true },
+              { name: "Member", value: "<@" + authorId + ">  ·  " + authorId, inline: true },
+              { name: "Channel", value: "<#" + message.channel_id + ">", inline: true },
+              { name: "Message", value: excerpt, inline: false },
+              { name: "Open original", value: "[Jump to message](" + jumpUrl + ")", inline: false }
+            ],
+            timestamp: new Date().toISOString(),
+            footer: { text: "POSTLAIN Community Assistant" }
+          }],
+          allowed_mentions: { parse: [] }
+        })
+      });
+      if (!response.ok) {
+        console.error("POSTLAIN Staff escalation failed:", response.status, (await response.text()).slice(0, 300));
+        return false;
+      }
+      console.log("POSTLAIN safety report routed to Staff", { channelId: message.channel_id, messageId: message.id });
+      return true;
+    } catch (error) {
+      console.error("POSTLAIN Staff escalation error:", String(error?.message || error));
+      return false;
+    }
   }
 
 }

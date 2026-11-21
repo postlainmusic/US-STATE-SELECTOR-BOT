@@ -586,6 +586,23 @@ async function handleInteraction(interaction, env, ctx) {
       return ephemeral((await result.json()).message || "Không thể bổ sung từ.");
     }
 
+    if (command === "money") {
+      if (!hasPermission(interaction, 8)) return ephemeral("⛔ Chỉ Admin mới có thể cộng Gold.");
+      const userId = String(optionValue(interaction, "user") || "");
+      const amount = Number(optionValue(interaction, "amount") || 0);
+      const adminId = String(interaction.member?.user?.id || interaction.user?.id || "");
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/games/money/add", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, amount, adminId, isAdmin: true, interactionId: String(interaction.id || "") })
+      });
+      const data = await result.json();
+      return ephemeral(data.ok
+        ? "✅ Đã cộng **" + amount.toLocaleString("vi-VN") + " Gold** cho <@" + userId + ">. Số dư mới: **" + Number(data.balance).toLocaleString("vi-VN") + " Gold**."
+        : data.message || "Không thể cộng Gold.");
+    }
+
     if (command === "daily") {
       const userId = String(interaction.member?.user?.id || interaction.user?.id || "");
       const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
@@ -608,6 +625,18 @@ async function handleInteraction(interaction, env, ctx) {
       const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
       const result = await gateway.fetch("https://gateway/games/leaderboard");
       return ephemeral((await result.json()).message || "Chưa có bảng xếp hạng Gold.");
+    }
+
+    if (command === "mayman") {
+      const userId = String(interaction.member?.user?.id || interaction.user?.id || "");
+      const amount = Number(optionValue(interaction, "amount") || 0);
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/games/lucky", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, amount, interactionId: String(interaction.id || "") })
+      });
+      return gameResult((await result.json()).message || "Chưa thể chơi lúc này.");
     }
 
     if (command === "baucua") {

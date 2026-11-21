@@ -51,7 +51,7 @@ const PROVIDERS = {
     key: "OPENROUTER_API_KEY",
     model: "AI_OPENROUTER_MODEL",
     defaultModel: "openrouter/free",
-    async run(env, question, model) {
+    async run(env, question, model, systemPrompt) {
       return openAICompatible(
         "https://openrouter.ai/api/v1/chat/completions",
         env.OPENROUTER_API_KEY,

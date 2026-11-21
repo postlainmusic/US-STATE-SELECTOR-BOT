@@ -9,11 +9,11 @@ A small, readable game hub for the Discord server. All balances are virtual Gold
 | `/daily` | Claim the daily Gold reward. |
 | `/ngold` | View Gold balance, daily streak and mini-game record. |
 | `/grank` | View the Gold leaderboard. |
-| `/baucua animal amount` | Bet virtual Gold on one of six Bầu Cua animals. |\n| `/xu-xi choice amount` | Play rock-paper-scissors against the bot, optionally betting Gold. |\n| `/vtv` | Start a multiple-choice Vietnamese language quiz. The first correct answer wins the round. |\n| `/vtvrank` | View the Vietnamese quiz leaderboard. |\n| `/ncf` / `/ntxx` | Coin flip and dice roll aliases. |
+| `/baucua animal amount` | Bet virtual Gold on one of six Bầu Cua animals. |\n| `/xu-xi choice amount` | Play rock-paper-scissors against the bot, optionally betting Gold. |\n| `/vtv` | Start a multiple-choice Vietnamese language quiz. The first correct answer wins the round. |\n| `/vtvrank` | View the Vietnamese quiz leaderboard. |\n| `/nserver` | View server information. |\n| `/ncf` / `/ntxx` | Coin flip and dice roll aliases. |
 | `/noitu start` | Start a Vietnamese word-chain round in the configured game channel. A valid phrase also starts a round automatically. |
 | `/noitu end` | End a round (starter or administrator). |
 | `/noitu score` | View the word-chain leaderboard. |
-| `/nme` | View a word-chain profile. |
+| `/nme` | View a combined player profile: word chain, Gold, mini-games and quiz stats. |
 | `/nrank` | View the word-chain leaderboard. |
 | `/de-xuat-tu` | Suggest a missing two-syllable phrase for review. |\n| `/duyet-tu` / `/tu-choi-tu` | Review a community suggestion (administrator only). |\n| `/them-tu` | Add a verified two-syllable phrase (administrator only). |
 

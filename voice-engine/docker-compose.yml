@@ -6,11 +6,8 @@ services:
       PORT: "3000"
       DISCORD_BOT_TOKEN: ${DISCORD_BOT_TOKEN}
       VOICE_ENGINE_SECRET: ${VOICE_ENGINE_SECRET}
-      TTS_TEMP_DIR: /tmp/postlain-voice
     expose:
       - "3000"
-    volumes:
-      - voice-temp:/tmp/postlain-voice
     healthcheck:
       test: ["CMD", "node", "-e", "fetch('http://127.0.0.1:3000/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
       interval: 30s
@@ -25,5 +22,3 @@ services:
       voice:
         condition: service_healthy
 
-volumes:
-  voice-temp:

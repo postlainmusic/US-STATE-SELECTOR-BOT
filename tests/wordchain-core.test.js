@@ -63,7 +63,7 @@ test("expanded player dictionary includes attested common phrases and curated ex
 
 test("community dictionary accepts common phrases and preserves strict two-syllable validation", () => {
   const dictionary = new Set([...VIETNAMESE_WORDS, ...VIETNAMESE_PLAYER_WORDS, ...VIETNAMESE_CURATED_WORDS, ...VIETNAMESE_COMMUNITY_WORDS]);
-  for (const phrase of ["mạng xã hội", "đăng nhập", "thành phố", "trò chơi", "sức khỏe", "máy tính", "tài khoản", "phát triển", "tương lai", "xã hội"]) {
+  for (const phrase of ["đăng nhập", "thành phố", "trò chơi", "sức khỏe", "máy tính", "tài khoản", "phát triển", "tương lai", "xã hội"]) {
     assert.equal(validateDictionaryPhrase(phrase, dictionary).ok, true, phrase);
   }
   assert.equal(validateDictionaryPhrase("mạng xã hội", dictionary).code, "format");

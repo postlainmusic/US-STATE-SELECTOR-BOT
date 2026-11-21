@@ -19,7 +19,7 @@ A serverless Discord interaction bot for a one-state-per-member role selector.
 
 ## Architecture
 
-Discord Interactions Endpoint and a Cloudflare Durable Object Gateway handle commands and live community messages. The Gateway uses a structured multilingual support engine with topic priorities and built-in guidance. It does not call AI providers and does not retain message history. Safety reports are forwarded to the configured private Staff room. Staff, moderation, ticket and private rooms are excluded from message reading.
+Discord Interactions Endpoint and a Cloudflare Durable Object Gateway handle commands and live community messages. The Gateway uses a structured multilingual support engine with topic priorities, built-in guidance, and 15-minute support sessions. Sessions store only category and message references, never message history or message content. Members can reply `staff` during an active session to request human help. Safety reports are forwarded to the configured private Staff room. Staff, moderation, ticket and private rooms are excluded from message reading.
 
 ## 1. Create the Discord application
 

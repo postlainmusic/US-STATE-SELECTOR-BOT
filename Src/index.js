@@ -431,8 +431,6 @@ async function handleInteraction(interaction, env, ctx) {
     }
 
     if (command === "nme") {
-      const GAME_CHANNEL_ID = "1573644570997035100";
-      if (String(interaction.channel_id || "") !== GAME_CHANNEL_ID) return ephemeral("🎮 Lệnh hồ sơ chỉ dùng trong phòng nối từ.");
       const targetId = String(optionValue(interaction, "user") || interaction.member?.user?.id || interaction.user?.id || "");
       const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
       const result = await gateway.fetch("https://gateway/wordchain/profile?userId=" + encodeURIComponent(targetId));
@@ -440,8 +438,6 @@ async function handleInteraction(interaction, env, ctx) {
     }
 
     if (command === "nrank") {
-      const GAME_CHANNEL_ID = "1573644570997035100";
-      if (String(interaction.channel_id || "") !== GAME_CHANNEL_ID) return ephemeral("🎮 Bảng xếp hạng chỉ dùng trong phòng nối từ.");
       const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
       const result = await gateway.fetch("https://gateway/wordchain/leaderboard");
       return ephemeral((await result.json()).message || "Chưa có bảng xếp hạng.");
@@ -611,7 +607,7 @@ async function handleInteraction(interaction, env, ctx) {
       return ephemeral(delay === null ? "🏓 Pong! POSTLAIN đang hoạt động." : `🏓 Pong! Lệnh được xử lý sau khoảng ${delay} ms từ lúc Discord tạo interaction.`);
     }
 
-    if (command === "serverinfo") {
+    if (command === "serverinfo" || command === "nserver") {
       if (!interaction.guild_id) return ephemeral("Lệnh này chỉ dùng trong server.");
       const deferred = json({ type: 5, data: { flags: 64 } });
       ctx.waitUntil((async () => {

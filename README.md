@@ -214,7 +214,7 @@ The Voice Engine exposes only an authenticated control API through the Tunnel. T
 
 - The game is restricted to channel `1573644570997035100`.
 - Use `/noitu start` to open a round, then players send Vietnamese phrases directly in that room.
-- Each move must be a 2–5-syllable phrase found in the bundled Viet11K lexicon, begin with the previous phrase's final syllable, and not have been used earlier in the same round.
+- Each move must be a 2–5-syllable Vietnamese phrase. Exact phrases in the bundled Viet11K lexicon are accepted; everyday combinations are also accepted when every syllable is a known Vietnamese dictionary entry (for example, “con gà” and “học sinh”). Moves must begin with the previous phrase's final syllable and must not have been used earlier in the same round.
 - The same player cannot make two consecutive valid moves. A Durable Object alarm automatically ends the round after 30 seconds without a valid move.
 - A player who submits a repeated or incorrectly chained dictionary phrase loses; the previous valid player gets a win. Use `/noitu end` to stop a round (starter or Admin), and `/noitu score` for the top 10.
 - The lexicon is derived from duyet/vietnamese-wordlist and is subject to GPL-2.0; attribution and limitations are documented in `WORDLIST-LICENSE.md`. It is not exhaustive, so some regional or uncommon phrases may not be recognized.

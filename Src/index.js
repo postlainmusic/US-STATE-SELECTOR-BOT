@@ -158,6 +158,65 @@ function isManageRoles(interaction) {
   return (permissions & 268435456n) === 268435456n;
 }
 
+
+function optionValue(interaction, name) {
+  const options = interaction.data?.options || [];
+  for (const option of options) {
+    if (option.name === name) return option.value;
+    const nested = option.options?.find(item => item.name === name);
+    if (nested) return nested.value;
+  }
+  return undefined;
+}
+
+function hasPermission(interaction, permission) {
+  const value = BigInt(interaction.member?.permissions || "0");
+  return (value & 8n) === 8n || (value & BigInt(permission)) === BigInt(permission);
+}
+
+function ephemeral(content) {
+  return json({ type: 4, data: { content, flags: 64, allowed_mentions: { parse: [] } } });
+}
+
+function avatarUrl(user) {
+  if (user?.avatar) return `https://cdn.discordapp.com/avatars/${user.id}/${user.avatar}.png?size=256`;
+  const index = Number((BigInt(user?.id || "0") >> 22n) % 6n);
+  return `https://cdn.discordapp.com/embed/avatars/${index}.png`;
+}
+
+async function setChannelLock(env, channelId, guildId, locked) {
+  const channel = await discord(`/channels/${channelId}`, env);
+  const overwrites = Array.isArray(channel.permission_overwrites) ? channel.permission_overwrites : [];
+  const current = overwrites.find(item => item.id === guildId && Number(item.type) === 0);
+  if (!current && !locked) return false;
+  const sendMessages = 2048n;
+  let allow = BigInt(current?.allow || "0");
+  let deny = BigInt(current?.deny || "0");
+  if (locked) {
+    allow &= ~sendMessages;
+    deny |= sendMessages;
+  } else {
+    deny &= ~sendMessages;
+  }
+  if (!allow && !deny) {
+    if (current) {
+      const response = await fetch(`${API}/channels/${channelId}/permissions/${guildId}?type=0`, {
+        method: "DELETE",
+        headers: { Authorization: `Bot ${env.DISCORD_BOT_TOKEN}` }
+      });
+      if (!response.ok) throw new Error(`Discord API ${response.status}: ${(await response.text()).slice(0, 300)}`);
+    }
+    return true;
+  }
+  const response = await fetch(`${API}/channels/${channelId}/permissions/${guildId}?type=0`, {
+    method: "PUT",
+    headers: { Authorization: `Bot ${env.DISCORD_BOT_TOKEN}`, "Content-Type": "application/json" },
+    body: JSON.stringify({ type: 0, allow: allow.toString(), deny: deny.toString() })
+  });
+  if (!response.ok) throw new Error(`Discord API ${response.status}: ${(await response.text()).slice(0, 300)}`);
+  return true;
+}
+
 async function handleInteraction(interaction, env, ctx) {
   if (interaction.type === 1) return json({ type: 1 });
 
@@ -243,6 +302,239 @@ async function handleInteraction(interaction, env, ctx) {
         }
       })();
       ctx.waitUntil(work);
+      return deferred;
+    }
+
+
+    if (command === "help") {
+      return json({
+        type: 4,
+        data: {
+          embeds: [{
+            color: COLORS.accent,
+            title: "POSTLAIN COMMUNITY TOOLKIT",
+            description: "Một bộ công cụ cho thành viên và đội ngũ quản trị.",
+            fields: [
+              { name: "🙋 Thành viên", value: "`/help` · `/ping` · `/serverinfo` · `/userinfo` · `/avatar` · `/report send` · `/poll create`", inline: false },
+              { name: "🗺️ Cộng đồng", value: "`/statepanel publish` · `/feedback send`", inline: false },
+              { name: "🛡️ Quản trị", value: "`/noti send` · `/purge` · `/slowmode` · `/lock` · `/unlock`", inline: false }
+            ],
+            footer: { text: "POSTLAIN · Community Assistant" }
+          }],
+          flags: 64
+        }
+      });
+    }
+
+    if (command === "ping") {
+      let delay = null;
+      try { delay = Math.max(0, Date.now() - Number((BigInt(interaction.id) >> 22n) + 1420070400000n)); } catch {}
+      return ephemeral(delay === null ? "🏓 Pong! POSTLAIN đang hoạt động." : `🏓 Pong! Lệnh được xử lý sau khoảng ${delay} ms từ lúc Discord tạo interaction.`);
+    }
+
+    if (command === "serverinfo") {
+      if (!interaction.guild_id) return ephemeral("Lệnh này chỉ dùng trong server.");
+      const deferred = json({ type: 5, data: { flags: 64 } });
+      ctx.waitUntil((async () => {
+        try {
+          const guild = await discord(`/guilds/${interaction.guild_id}?with_counts=true`, env);
+          const owner = guild.owner_id ? `<@${guild.owner_id}>` : "Unknown";
+          const created = new Date(Number((BigInt(guild.id) >> 22n) + 1420070400000n)).toLocaleDateString("vi-VN");
+          const embed = {
+            color: COLORS.accent,
+            title: guild.name || "Server information",
+            description: guild.description || "POSTLAIN community server",
+            fields: [
+              { name: "👥 Members", value: String(guild.approximate_member_count ?? guild.member_count ?? "N/A"), inline: true },
+              { name: "🚀 Boosts", value: String(guild.premium_subscription_count ?? 0), inline: true },
+              { name: "👑 Owner", value: owner, inline: true },
+              { name: "📅 Created", value: created, inline: true },
+              { name: "🛡️ Verification", value: String(guild.verification_level ?? "N/A"), inline: true },
+              { name: "🌐 Locale", value: String(guild.preferred_locale || "N/A"), inline: true }
+            ],
+            thumbnail: guild.icon ? { url: `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=256` } : undefined,
+            footer: { text: `Server ID: ${guild.id}` }
+          };
+          await editInteractionResponse(env, interaction, " "); 
+          const hook = `${API}/webhooks/${env.DISCORD_APPLICATION_ID}/${interaction.token}/messages/@original`;
+          const response = await fetch(hook, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: null, embeds: [embed], allowed_mentions: { parse: [] } }) });
+          if (!response.ok) console.error("Server info response failed:", response.status, (await response.text()).slice(0, 300));
+        } catch (error) {
+          console.error("Server info failed:", error);
+          await editInteractionResponse(env, interaction, "Không lấy được thông tin server. Thử lại sau nhé.");
+        }
+      })());
+      return deferred;
+    }
+
+    if (command === "userinfo" || command === "avatar") {
+      if (!interaction.guild_id) return ephemeral("Lệnh này chỉ dùng trong server.");
+      const targetId = optionValue(interaction, "user") || interaction.member?.user?.id || interaction.user?.id;
+      if (!targetId) return ephemeral("Không xác định được thành viên.");
+      const deferred = json({ type: 5, data: { flags: 64 } });
+      ctx.waitUntil((async () => {
+        try {
+          const [user, member] = await Promise.all([
+            discord(`/users/${targetId}`, env),
+            command === "userinfo" ? discord(`/guilds/${interaction.guild_id}/members/${targetId}`, env) : Promise.resolve(null)
+          ]);
+          const image = avatarUrl(user);
+          if (command === "avatar") {
+            const hook = `${API}/webhooks/${env.DISCORD_APPLICATION_ID}/${interaction.token}/messages/@original`;
+            const response = await fetch(hook, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: image, allowed_mentions: { parse: [] } }) });
+            if (!response.ok) throw new Error(`Avatar response failed: ${response.status}`);
+            return;
+          }
+          const joined = member?.joined_at ? new Date(member.joined_at).toLocaleString("vi-VN") : "N/A";
+          const created = new Date(Number((BigInt(user.id) >> 22n) + 1420070400000n)).toLocaleString("vi-VN");
+          const roles = (member?.roles || []).length;
+          const embed = {
+            color: COLORS.accent,
+            title: member?.nick || user.global_name || user.username || "User",
+            description: `<@${user.id}>\n${user.bot ? "🤖 Bot account" : "👤 Member"}`,
+            thumbnail: { url: image },
+            fields: [
+              { name: "📅 Account created", value: created, inline: true },
+              { name: "🏠 Joined server", value: joined, inline: true },
+              { name: "🎭 Role count", value: String(roles), inline: true },
+              { name: "🆔 User ID", value: user.id, inline: false }
+            ],
+            footer: { text: "POSTLAIN Member Card" }
+          };
+          const hook = `${API}/webhooks/${env.DISCORD_APPLICATION_ID}/${interaction.token}/messages/@original`;
+          const response = await fetch(hook, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: null, embeds: [embed], allowed_mentions: { parse: [] } }) });
+          if (!response.ok) throw new Error(`User info response failed: ${response.status}`);
+        } catch (error) {
+          console.error("Member lookup failed:", error);
+          await editInteractionResponse(env, interaction, "Không tìm được thành viên này trong server.");
+        }
+      })());
+      return deferred;
+    }
+
+    if (command === "report" && subcommand === "send") {
+      const details = String(optionValue(interaction, "details") || "").trim();
+      const staffChannel = String(env.SUPPORT_STAFF_CHANNEL_ID || "");
+      if (!details || !staffChannel) return ephemeral("Chưa cấu hình nơi nhận báo cáo hoặc nội dung đang trống.");
+      const user = interaction.member?.user || interaction.user || {};
+      const deferred = json({ type: 5, data: { flags: 64 } });
+      ctx.waitUntil((async () => {
+        try {
+          await discord(`/channels/${staffChannel}/messages`, env, {
+            method: "POST",
+            body: JSON.stringify({
+              embeds: [{
+                color: 0xE05D5D,
+                title: "🛡️ MEMBER REPORT",
+                description: details.slice(0, 1800),
+                fields: [
+                  { name: "Reporter", value: `<@${user.id}> · ${user.username || "Unknown"}`, inline: true },
+                  { name: "Location", value: interaction.channel_id ? `<#${interaction.channel_id}>` : "DM", inline: true }
+                ],
+                timestamp: new Date().toISOString(),
+                footer: { text: "POSTLAIN Community Safety" }
+              }],
+              allowed_mentions: { parse: [] }
+            })
+          });
+          await editInteractionResponse(env, interaction, "✅ Đã chuyển báo cáo đến đội ngũ Staff. Cảm ơn mày đã thông tin.");
+        } catch (error) {
+          console.error("Member report failed:", error);
+          await editInteractionResponse(env, interaction, "❌ Chưa gửi được báo cáo. Hãy liên hệ Moderator trực tiếp.");
+        }
+      })());
+      return deferred;
+    }
+
+    if (command === "poll" && subcommand === "create") {
+      const question = String(optionValue(interaction, "question") || "").trim();
+      if (!question || question.length > 240) return ephemeral("Câu hỏi phải có từ 1 đến 240 ký tự.");
+      const deferred = json({ type: 5, data: { flags: 64 } });
+      ctx.waitUntil((async () => {
+        try {
+          const poll = await discord(`/channels/${interaction.channel_id}/messages`, env, {
+            method: "POST",
+            body: JSON.stringify({
+              embeds: [{
+                color: COLORS.accent,
+                title: "📊 COMMUNITY POLL",
+                description: `**${question}**\n\n👍  Đồng ý\n👎  Không đồng ý\n🤷  Không có ý kiến`,
+                footer: { text: `Created by ${interaction.member?.user?.global_name || interaction.user?.username || "a member"} · React to vote` },
+                timestamp: new Date().toISOString()
+              }],
+              allowed_mentions: { parse: [] }
+            })
+          });
+          for (const emoji of ["👍", "👎", "🤷"]) {
+            const path = `/channels/${interaction.channel_id}/messages/${poll.id}/reactions/${encodeURIComponent(emoji)}/@me`;
+            const response = await fetch(`${API}${path}`, { method: "PUT", headers: { Authorization: `Bot ${env.DISCORD_BOT_TOKEN}` } });
+            if (!response.ok) console.warn("Could not seed poll reaction:", emoji, response.status);
+          }
+          await editInteractionResponse(env, interaction, "📊 Đã tạo bình chọn. Thành viên có thể thả reaction để bỏ phiếu.");
+        } catch (error) {
+          console.error("Poll creation failed:", error);
+          await editInteractionResponse(env, interaction, "❌ Không tạo được bình chọn. Kiểm tra quyền gửi tin nhắn và thêm reaction của bot.");
+        }
+      })());
+      return deferred;
+    }
+
+    if (command === "purge") {
+      if (!hasPermission(interaction, 8192)) return ephemeral("⛔ Cần quyền Manage Messages để dùng lệnh này.");
+      const amount = Number(optionValue(interaction, "amount") || 0);
+      if (!Number.isInteger(amount) || amount < 2 || amount > 100) return ephemeral("Số lượng phải từ 2 đến 100.");
+      const deferred = json({ type: 5, data: { flags: 64 } });
+      ctx.waitUntil((async () => {
+        try {
+          const messages = await discord(`/channels/${interaction.channel_id}/messages?limit=${amount}`, env);
+          const cutoff = Date.now() - 14 * 24 * 60 * 60 * 1000;
+          const recent = (messages || []).filter(item => new Date(item.timestamp).getTime() > cutoff).map(item => item.id);
+          if (!recent.length) return editInteractionResponse(env, interaction, "Không có tin nhắn đủ điều kiện xóa trong 14 ngày gần nhất.");
+          if (recent.length === 1) {
+            const response = await fetch(`${API}/channels/${interaction.channel_id}/messages/${recent[0]}`, { method: "DELETE", headers: { Authorization: `Bot ${env.DISCORD_BOT_TOKEN}` } });
+            if (!response.ok) throw new Error(`Delete failed: ${response.status}`);
+          } else {
+            await discord(`/channels/${interaction.channel_id}/messages/bulk-delete`, env, { method: "POST", body: JSON.stringify({ messages: recent }) });
+          }
+          await editInteractionResponse(env, interaction, `🧹 Đã xóa ${recent.length} tin nhắn gần đây. Tin nhắn cũ hơn 14 ngày được bỏ qua.`);
+        } catch (error) {
+          console.error("Purge failed:", error);
+          await editInteractionResponse(env, interaction, "❌ Không xóa được tin nhắn. Kiểm tra quyền Manage Messages và thử lại.");
+        }
+      })());
+      return deferred;
+    }
+
+    if (command === "slowmode") {
+      if (!hasPermission(interaction, 16)) return ephemeral("⛔ Cần quyền Manage Channels để dùng lệnh này.");
+      const seconds = Number(optionValue(interaction, "seconds"));
+      if (!Number.isInteger(seconds) || seconds < 0 || seconds > 21600) return ephemeral("Slowmode phải từ 0 đến 21.600 giây.");
+      const deferred = json({ type: 5, data: { flags: 64 } });
+      ctx.waitUntil((async () => {
+        try {
+          await discord(`/channels/${interaction.channel_id}`, env, { method: "PATCH", body: JSON.stringify({ rate_limit_per_user: seconds }) });
+          await editInteractionResponse(env, interaction, seconds === 0 ? "⏱️ Đã tắt slowmode." : `⏱️ Đã đặt slowmode ${seconds} giây.`);
+        } catch (error) {
+          console.error("Slowmode failed:", error);
+          await editInteractionResponse(env, interaction, "❌ Không đổi được slowmode. Kiểm tra quyền Manage Channels.");
+        }
+      })());
+      return deferred;
+    }
+
+    if (command === "lock" || command === "unlock") {
+      if (!hasPermission(interaction, 16)) return ephemeral("⛔ Cần quyền Manage Channels để dùng lệnh này.");
+      const locked = command === "lock";
+      const deferred = json({ type: 5, data: { flags: 64 } });
+      ctx.waitUntil((async () => {
+        try {
+          const changed = await setChannelLock(env, interaction.channel_id, interaction.guild_id, locked);
+          await editInteractionResponse(env, interaction, locked ? "🔒 Đã khóa quyền gửi tin nhắn của @everyone tại kênh này." : (changed ? "🔓 Đã mở khóa quyền gửi tin nhắn của @everyone." : "Kênh này không có khóa @everyone để gỡ."));
+        } catch (error) {
+          console.error("Channel lock update failed:", error);
+          await editInteractionResponse(env, interaction, "❌ Không thể đổi quyền kênh. Kiểm tra quyền Manage Channels.");
+        }
+      })());
       return deferred;
     }
 

@@ -156,5 +156,5 @@ Push to `main`; GitHub Actions deploys the Worker.
 - The bot preserves all roles outside the configured 50 state roles.
 - Discord role hierarchy must allow the bot to manage every state role.
 - Keep all tokens in Worker secrets / GitHub Actions secrets. Never commit them.
-- This first version has no database because Discord member roles are the source of truth.
+- Discord member roles remain the source of truth for state selection. The Durable Object SQLite database stores only short-lived reply-rate-limit metadata, not message content or chat history.
 - If two state selections are submitted at exactly the same time, Discord's member-role updates are last-write-wins. For a very large/high-concurrency server, add a per-member serialized queue before expanding.

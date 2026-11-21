@@ -105,6 +105,33 @@ export class DiscordGateway {
         hasBotToken: Boolean(this.env.DISCORD_BOT_TOKEN)
       });
     }
+
+    if (url.pathname === "/wordchain/start" && request.method === "POST") {
+      const payload = await request.json();
+      const userId = String(payload.userId || "");
+      if (!userId) return Response.json({ ok: false, message: "Không xác định được người chơi." }, { status: 400 });
+      const current = this.ctx.storage.sql.exec("SELECT active FROM word_chain_games WHERE channel_id = ?", WORD_CHAIN_CHANNEL_ID).toArray()[0];
+      if (current?.active) return Response.json({ ok: false, message: "🎮 Đang có một ván nối từ diễn ra rồi. Cứ vào chơi thôi!" });
+      this.ctx.storage.sql.exec(
+        "INSERT OR REPLACE INTO word_chain_games (channel_id, active, starter_id, current_tail, used_words, last_player_id, moves, last_move_at) VALUES (?, 1, ?, NULL, '[]', NULL, 0, ?)",
+        WORD_CHAIN_CHANNEL_ID, userId, Date.now());
+      return Response.json({ ok: true, message: "🎮 **Ván nối từ POSTLAIN bắt đầu!**\\nMọi người lần lượt gửi cụm từ tiếng Việt gồm 2-5 tiếng. Người tiếp theo phải bắt đầu bằng tiếng cuối của cụm trước. Không lặp từ, không tự đi hai lượt liên tiếp. Mỗi lượt có 30 giây.\\n\\n🏁 <@" + userId + "> đã mở ván. Ai đi trước cũng được!" });
+    }
+    if (url.pathname === "/wordchain/end" && request.method === "POST") {
+      const payload = await request.json();
+      const userId = String(payload.userId || "");
+      const current = this.ctx.storage.sql.exec("SELECT active, starter_id FROM word_chain_games WHERE channel_id = ?", WORD_CHAIN_CHANNEL_ID).toArray()[0];
+      if (!current?.active) return Response.json({ ok: false, message: "Hiện không có ván nào đang diễn ra." });
+      if (String(current.starter_id) !== userId && !payload.isAdmin) return Response.json({ ok: false, message: "Chỉ người mở ván hoặc Admin mới được kết thúc." });
+      this.ctx.storage.sql.exec("UPDATE word_chain_games SET active = 0 WHERE channel_id = ?", WORD_CHAIN_CHANNEL_ID);
+      return Response.json({ ok: true, message: "🛑 Đã kết thúc ván nối từ. Dùng /noitu score để xem bảng xếp hạng." });
+    }
+    if (url.pathname === "/wordchain/score" && request.method === "GET") {
+      const rows = this.ctx.storage.sql.exec("SELECT user_id, wins, losses, moves FROM word_chain_scores ORDER BY wins DESC, moves DESC LIMIT 10").toArray();
+      if (!rows.length) return Response.json({ message: "🏆 Bảng xếp hạng chưa có dữ liệu. Mở ván đầu tiên bằng /noitu start nhé!" });
+      const lines = rows.map((row, index) => (index + 1) + ". <@" + row.user_id + "> · **" + row.wins + " thắng** · " + row.losses + " thua · " + row.moves + " lượt hợp lệ");
+      return Response.json({ message: "🏆 **POSTLAIN NỐI TỪ · TOP 10**\\n" + lines.join("\\n") });
+    }
     return new Response("Not found", { status: 404 });
   }
 

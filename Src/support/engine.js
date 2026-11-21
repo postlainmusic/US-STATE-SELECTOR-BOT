@@ -18,9 +18,9 @@ const HELP_CUES = [
   "can giup", "minh can", "can hoi", "ai giup", "chi minh", "xin giup",
   "ho tro", "support", "lam sao", "the nao", "cach nao", "tai sao",
   "vi sao", "sao lai", "khong hieu", "minh bi", "toi bi", "i need",
-  "how do i", "how can i", "where can i", "where is", "why does",
+  "how do i", "how can i", "how to", "where can i", "where is", "why does",
   "why is", "it does not work", "doesnt work", "not working",
-  "cant", "cannot", "unable to", "issue with", "problem with"
+  "cant", "can t", "cannot", "can not", "unable to", "having trouble", "trouble with", "not sure how to", "issue with", "problem with"
 ];
 
 const CATEGORIES = [
@@ -58,7 +58,7 @@ const CATEGORIES = [
   },
   {
     key: "music-playback", priority: 75,
-    terms: ["music", "nhac", "phat nhac", "playlist", "spotify", "apple music", "youtube music", "song request", "track", "bai hat", "nghe nhac", "playback", "music bot", "streaming"],
+    terms: ["music", "phat nhac", "playlist", "spotify", "apple music", "youtube music", "song request", "track", "bai hat", "nghe nhac", "playback", "music bot", "streaming"],
     vi: "🎵 **Âm nhạc / phát nhạc**\nNói rõ mày đang muốn chia sẻ playlist, đề xuất bài hát hay gặp lỗi phát nhạc. Nếu là lỗi phát, cho biết bot/ứng dụng nào, voice channel nào và thông báo lỗi hiện ra. Nếu chỉ muốn giới thiệu nhạc, gửi tên bài hoặc link.",
     en: "🎵 **Music / playback**\nTell us whether you want to share a playlist, recommend a track, or troubleshoot playback. For playback issues, include the bot/app, voice channel, and exact error. For a music recommendation, share the track or link.",
     followVi: "Mày muốn chia sẻ nhạc hay đang gặp lỗi khi phát/nghe nhạc?",
@@ -74,7 +74,7 @@ const CATEGORIES = [
   },
   {
     key: "server-rules", priority: 65,
-    terms: ["noi quy", "rules", "rule", "quy dinh", "luat server", "warning", "canh cao", "mute", "kick", "ban", "bi cam", "appeal", "khieu nai", "appeal ban", "bi phat"],
+    terms: ["noi quy", "rules", "rule", "quy dinh", "luat server", "warning", "canh cao", "mute", "kick", "bi ban", "banned", "bi cam", "appeal", "khieu nai", "appeal ban", "bi phat"],
     vi: "📜 **Nội quy / xử lý vi phạm**\nĐọc phòng Rules và các thông báo được ghim. Nếu muốn khiếu nại cảnh cáo, mute, kick hoặc ban, hãy gửi cho Moderator/Staff thời điểm xảy ra, lý do hiển thị và ngữ cảnh liên quan. Không đăng thông tin cá nhân của người khác.",
     en: "📜 **Rules / moderation action**\nReview the Rules channel and pinned announcements. To appeal a warning, mute, kick, or ban, contact a Moderator/Staff member with the time, displayed reason, and relevant context. Do not publish anyone's private information.",
     followVi: "Mày cần giải thích nội quy hay muốn khiếu nại một quyết định moderation?",

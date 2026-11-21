@@ -550,7 +550,7 @@ async function handleInteraction(interaction, env, ctx) {
     }
 
     if (command === "lock" || command === "unlock") {
-      if (!hasPermission(interaction, 16)) return ephemeral("⛔ Cần quyền Manage Channels để dùng lệnh này.");
+      if (!hasPermission(interaction, 268435456)) return ephemeral("⛔ Cần quyền Manage Roles để chỉnh permission overwrite của kênh.");
       const locked = command === "lock";
       const deferred = json({ type: 5, data: { flags: 64 } });
       ctx.waitUntil((async () => {

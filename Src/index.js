@@ -192,7 +192,7 @@ function helpPanel(category = "games") {
       fields: [
         { name: "Nối từ", value: "Gửi cụm gồm **2 tiếng**. Tiếng đầu phải khớp với tiếng cuối của lượt trước. Không lặp cụm và không đi hai lượt liên tiếp. Mỗi lượt có 30 giây.", inline: false },
         { name: "Lệnh", value: "`/noitu start` mở ván · `/noitu end` kết thúc · `/noitu score` xem bảng xếp hạng", inline: false },
-        { name: "Hồ sơ & từ điển", value: "`/nme` hồ sơ nối từ · `/nrank` top nối từ · `/them-tu` bổ sung cụm từ (Admin)", inline: false },
+        { name: "Hồ sơ & từ điển", value: "`/nme` hồ sơ · `/nrank` bảng xếp hạng · `/de-xuat-tu` đề xuất cụm còn thiếu · `/them-tu` thêm từ (Admin) · `/duyet-tu` duyệt (Admin)", inline: false },
         { name: "Gold & mini game", value: "`/daily` nhận Gold · `/ngold` xem số dư · `/grank` bảng xếp hạng · `/baucua` chơi Bầu Cua", inline: false }
       ]
     },

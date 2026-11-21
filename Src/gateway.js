@@ -259,7 +259,7 @@ export class DiscordGateway {
     } else if (packet.t === "MESSAGE_CREATE") {
       await this.handleMessage(packet.d);
     } else if (packet.t === "GUILD_MEMBER_ADD") {
-      // Welcome automation is intentionally deferred until a public welcome channel is configured.
+      await this.sendWelcome(packet.d);
     }
   }
 
@@ -326,11 +326,42 @@ export class DiscordGateway {
     }
   }
 
-  isExcluded(channelId, message = {}) {
-    const parentId = message.parent_id || this.channelParents.get(channelId) || null;
-    const parentName = parentId ? this.channelNames.get(parentId) : "";
-    const channelName = this.channelNames.get(channelId) || "";
-    if (!channelName) return true; // Unknown channels are denied until their privacy classification is known.
+  async isExcluded(channelId, message = {}) {
+    let channelName = this.channelNames.get(channelId) || "";
+    let parentId = message.parent_id || this.channelParents.get(channelId) || null;
+    let parentName = parentId ? (this.channelNames.get(parentId) || "") : "";
+
+    // Channel cache can be empty after a Gateway resume or a missed CHANNEL_CREATE.
+    // Resolve the channel directly before applying the privacy deny-list.
+    if (!channelName) {
+      try {
+        const response = await fetch(`${DISCORD_API}/channels/${channelId}`, {
+          headers: { Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}` }
+        });
+        if (response.ok) {
+          const channel = await response.json();
+          channelName = channel.name || "";
+          parentId = channel.parent_id || parentId;
+          if (channelName) this.channelNames.set(channelId, channelName);
+          if (parentId) this.channelParents.set(channelId, parentId);
+          if (parentId && !parentName) {
+            const parentResponse = await fetch(`${DISCORD_API}/channels/${parentId}`, {
+              headers: { Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}` }
+            });
+            if (parentResponse.ok) {
+              const parent = await parentResponse.json();
+              parentName = parent.name || "";
+              if (parentName) this.channelNames.set(parentId, parentName);
+            }
+          }
+        }
+      } catch (error) {
+        console.error("POSTLAIN AI could not resolve channel privacy:", String(error?.message || error));
+      }
+    }
+
+    // Keep unknown channels fail-closed. Never process a channel whose privacy cannot be classified.
+    if (!channelName) return true;
     return isExcludedChannel(channelId, parentId, channelName, parentName, this.env);
   }
 
@@ -338,10 +369,10 @@ export class DiscordGateway {
     const guildId = String(this.env.DISCORD_GUILD_ID || "");
     if (!message || String(message.guild_id || "") !== guildId) return;
     if (!message.channel_id || message.author?.bot || message.webhook_id) return;
-    if (this.isExcluded(message.channel_id, message)) return;
 
     const content = String(message.content || "").trim().slice(0, MAX_MESSAGE_LENGTH);
     if (!content) return;
+    if (await this.isExcluded(message.channel_id, message)) return;
 
     const botId = String(this.env.DISCORD_BOT_USER_ID || "");
     const mentionInPayload = Array.isArray(message.mentions) &&
@@ -372,6 +403,50 @@ export class DiscordGateway {
       await this.replyToMention(message, content);
     }
   }
+  async sendWelcome(memberData = {}) {
+    const user = memberData.user || memberData;
+    const userId = String(user.id || "");
+    if (!userId) return;
+
+    let welcomeChannelId = String(this.env.WELCOME_CHANNEL_ID || "").trim();
+    if (!welcomeChannelId) {
+      const candidates = [...this.channelNames.entries()];
+      const match = candidates.find(([, name]) =>
+        /^(welcome|welcome-room|welcome-here|new-members|introductions|chao-mung|chao-don|gioi-thieu|phong-chao-mung)$/i.test(String(name || "").replace(/[^a-z0-9-]/gi, ""))
+      );
+      welcomeChannelId = match?.[0] || "";
+    }
+
+    if (!welcomeChannelId) {
+      console.warn("POSTLAIN AI welcome skipped: set WELCOME_CHANNEL_ID or create a clearly named public welcome channel.");
+      return;
+    }
+
+    const displayName = String(user.global_name || user.username || "bạn mới").slice(0, 80);
+    const payload = {
+      content: `Chào mừng <@${userId}> đến với **POSTLAIN**! 🎉\\n\\nTụi mình rất vui vì có mày ở đây. Cứ giới thiệu đôi chút về bản thân, khám phá các phòng chat và thoải mái tham gia cùng mọi người nhé. Nếu cần hỗ trợ, cứ gọi POSTLAIN AI bằng cách tag tao.\\n\\nChúc mày có khoảng thời gian thật vui ở đây! 🖤`,
+      allowed_mentions: { users: [userId] }
+    };
+
+    try {
+      const response = await fetch(`${DISCORD_API}/channels/${welcomeChannelId}/messages`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(payload)
+      });
+      if (!response.ok) {
+        console.error("POSTLAIN AI welcome failed:", response.status, (await response.text()).slice(0, 400));
+        return;
+      }
+      console.log("POSTLAIN AI welcomed new member", { userId, welcomeChannelId, displayName });
+    } catch (error) {
+      console.error("POSTLAIN AI welcome delivery failed:", String(error?.message || error));
+    }
+  }
+
   getContext(channelId = "") {
     const channelRows = channelId
       ? this.ctx.storage.sql.exec(

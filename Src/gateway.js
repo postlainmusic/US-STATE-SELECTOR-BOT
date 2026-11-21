@@ -413,7 +413,7 @@ export class DiscordGateway {
       const candidates = [...this.channelNames.entries()];
       const match = candidates.find(([, name]) => {
         const normalized = String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9-]/g, "");
-        return /^(welcome|welcome-room|welcome-here|new-members|introductions|chao-mung|chao-don|gioi-thieu|phong-chao-mung)$/.test(normalized);
+        return /^(welcome|welcome-room|welcome-here|new-members|introductions|chao-mung|chao-don|gioi-thieu|gioi-thieu-ban-than|introduce-yourself|phong-chao-mung)$/.test(normalized);
       });
       welcomeChannelId = match?.[0] || "";
     }
@@ -425,7 +425,7 @@ export class DiscordGateway {
 
     const displayName = String(user.global_name || user.username || "bạn mới").slice(0, 80);
     const payload = {
-      content: `Chào mừng <@${userId}> đến với **POSTLAIN**! 🎉\\n\\nTụi mình rất vui vì có mày ở đây. Cứ giới thiệu đôi chút về bản thân, khám phá các phòng chat và thoải mái tham gia cùng mọi người nhé. Nếu cần hỗ trợ, cứ gọi POSTLAIN AI bằng cách tag tao.\\n\\nChúc mày có khoảng thời gian thật vui ở đây! 🖤`,
+      content: `Chào mừng <@${userId}> đến với **POSTLAIN**! 🎉\n\nTụi mình rất vui vì có mày ở đây. Cứ giới thiệu đôi chút về bản thân, khám phá các phòng chat và thoải mái tham gia cùng mọi người nhé. Nếu cần hỗ trợ, cứ gọi POSTLAIN AI bằng cách tag tao.\n\nChúc mày có khoảng thời gian thật vui ở đây! 🖤`,
       allowed_mentions: { users: [userId] }
     };
 

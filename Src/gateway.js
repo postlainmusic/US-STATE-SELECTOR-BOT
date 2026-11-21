@@ -108,6 +108,12 @@ export class DiscordGateway {
   }
 
   async connect() {
+    const savedSession = await this.ctx.storage.get("gateway_session");
+    if (savedSession) {
+      this.sessionId = this.sessionId || savedSession.sessionId || null;
+      this.seq = this.seq ?? savedSession.seq ?? null;
+      this.resumeUrl = this.resumeUrl || savedSession.resumeUrl || null;
+    }
     if (!this.env.DISCORD_BOT_TOKEN || !this.env.DISCORD_GUILD_ID) {
       console.error("Gateway missing DISCORD_BOT_TOKEN or DISCORD_GUILD_ID.");
       return;
@@ -207,12 +213,15 @@ export class DiscordGateway {
       await this.refreshChannels();
       console.log("POSTLAIN AI Gateway READY.");
     } else if (packet.t === "RESUMED") {
+      await this.refreshChannels();
       console.log("POSTLAIN AI Gateway session resumed.");
+    } else if (packet.t === "CHANNEL_CREATE" || packet.t === "CHANNEL_UPDATE" || packet.t === "THREAD_CREATE") {
+      this.channelNames.set(packet.d.id, packet.d.name || "");
+      if (packet.d.parent_id) this.channelParents.set(packet.d.id, packet.d.parent_id);
     } else if (packet.t === "MESSAGE_CREATE") {
       await this.handleMessage(packet.d);
     } else if (packet.t === "GUILD_MEMBER_ADD") {
       // Welcome automation is intentionally deferred until a public welcome channel is configured.
-      console.log("New guild member joined:", packet.d.user?.id);
     }
   }
 
@@ -264,6 +273,16 @@ export class DiscordGateway {
         this.channelNames.set(channel.id, channel.name || "");
         if (channel.parent_id) this.channelParents.set(channel.id, channel.parent_id);
       }
+      const activeThreads = await fetch(`${DISCORD_API}/guilds/${this.env.DISCORD_GUILD_ID}/threads/active`, {
+        headers: { Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}` }
+      });
+      if (activeThreads.ok) {
+        const payload = await activeThreads.json();
+        for (const thread of payload.threads || []) {
+          this.channelNames.set(thread.id, thread.name || "");
+          if (thread.parent_id) this.channelParents.set(thread.id, thread.parent_id);
+        }
+      }
     } catch (error) {
       console.error("Could not refresh Discord channel names:", error);
     }
@@ -273,6 +292,7 @@ export class DiscordGateway {
     const parentId = message.parent_id || this.channelParents.get(channelId) || null;
     const parentName = parentId ? this.channelNames.get(parentId) : "";
     const channelName = this.channelNames.get(channelId) || "";
+    if (!channelName) return true; // Unknown channels are denied until their privacy classification is known.
     return isExcludedChannel(channelId, parentId, channelName, parentName, this.env);
   }
 

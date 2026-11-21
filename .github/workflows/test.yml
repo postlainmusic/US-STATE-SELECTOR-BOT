@@ -27,4 +27,6 @@ jobs:
           node --check Src/gateway.js
           node --check Src/support/engine.js
           node --check scripts/register-commands.js
+          node --check Src/voice.js
+          node --check voice-engine/src/server.js
           npm test

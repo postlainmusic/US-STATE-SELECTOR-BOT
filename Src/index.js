@@ -346,7 +346,7 @@ async function handleInteraction(interaction, env, ctx) {
             title: "POSTLAIN COMMUNITY TOOLKIT",
             description: "Một bộ công cụ cho thành viên và đội ngũ quản trị.",
             fields: [
-              { name: "🙋 Thành viên", value: "`/help` · `/ping` · `/serverinfo` · `/userinfo` · `/avatar` · `/report send` · `/poll create`", inline: false },
+              { name: "🙋 Thành viên", value: "`/help` · `/ping` · `/serverinfo` · `/userinfo` · `/avatar` · `/report send` · `/poll create` · `/coinflip` · `/roll` · `/choose`", inline: false },
               { name: "🗺️ Cộng đồng", value: "`/statepanel publish` · `/feedback send`", inline: false },
               { name: "🛡️ Quản trị", value: "`/noti send` · `/purge` · `/slowmode` · `/lock` · `/unlock`", inline: false }
             ],

@@ -124,7 +124,12 @@ export async function generateAnswer(env, question, knowledge = "", conversation
       return await provider.run({ ...env, [provider.key]: apiKey }, cleanQuestion, model, systemPrompt);
     } catch (error) {
       attempted.push(name);
-      console.warn(`POSTLAIN AI provider ${name} failed:`, String(error?.message || error).slice(0, 300));
+      console.warn("POSTLAIN AI provider failed:", JSON.stringify({
+        provider: name,
+        model,
+        errorName: String(error?.name || "Error"),
+        errorMessage: String(error?.message || error).slice(0, 300)
+      }));
     }
   }
 

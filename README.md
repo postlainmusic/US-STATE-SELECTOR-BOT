@@ -11,7 +11,10 @@ A serverless Discord interaction bot for a one-state-per-member role selector.
 - `REMOVE MY STATE` clears the member's state role.
 - All non-state roles are preserved.
 - `/statepanel publish` publishes the persistent component panel.
-- `/health` is a lightweight health check.
+- Member utilities: `/help`, `/ping`, `/serverinfo`, `/userinfo`, `/avatar`, `/report send`.
+- Community fun: `/poll create`, `/coinflip`, `/roll`, `/choose`.
+- Moderation utilities: `/purge`, `/slowmode`, `/lock`, `/unlock` (permission-gated).
+- Community workflows: `/feedback send`, `/noti send`.
 - POSTLAIN Community Assistant detects support topics in permitted channels, responds in Vietnamese or English, asks one clarifying question, and routes safety reports to the private Staff room. Ordinary chat is ignored. New-member greetings are handled by Carl-bot.
 
 ## Architecture
@@ -134,7 +137,9 @@ npm run register-commands
 
 The command is guild-scoped for immediate availability.
 
-## 6. Publish
+## 6. Register and publish
+
+Run the command-registration workflow (or `npm run register-commands` with the three Discord environment variables). The command registration uses a guild-scoped overwrite, so it registers the complete command set in `scripts/register-commands.js`.
 
 In your server, run:
 
@@ -157,6 +162,8 @@ Push to `main`; GitHub Actions deploys the Worker.
 - Discord role hierarchy must allow the bot to manage every state role.
 - Keep all tokens in Worker secrets / GitHub Actions secrets. Never commit them.
 - Configure `SUPPORT_STAFF_CHANNEL_ID` to a private channel visible only to Staff and the bot.
+- The bot needs View Channel / Send Messages in public support channels; Manage Roles for State Selector; Add Reactions for polls; Manage Messages for `/purge`; and Manage Channels for `/slowmode`, `/lock`, and `/unlock`.
+- `/lock` and `/unlock` support text and announcement channels. `/purge` skips messages older than 14 days, as required by Discord's bulk-delete API.
 - Enable the Message Content privileged intent in the Discord Developer Portal for proactive message support.
 - Discord member roles remain the source of truth for state selection. The Durable Object SQLite database stores only short-lived reply-rate-limit metadata, not message content or chat history.
 - If two state selections are submitted at exactly the same time, Discord's member-role updates are last-write-wins. For a very large/high-concurrency server, add a per-member serialized queue before expanding.

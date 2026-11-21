@@ -49,3 +49,20 @@ test("rejects oversized questions before calling a provider", async () => {
     /1.800 ký tự/
   );
 });
+
+test("includes curated server knowledge in the provider system prompt", async () => {
+  const originalFetch = globalThis.fetch;
+  let requestBody;
+  globalThis.fetch = async (_url, options) => {
+    requestBody = JSON.parse(options.body);
+    return new Response(JSON.stringify({ candidates: [{ content: { parts: [{ text: "Theo quy định server." }] } }] }), { status: 200 });
+  };
+  try {
+    const answer = await generateAnswer({ GEMINI_API_KEY: "test-key", AI_PROVIDER_ORDER: "gemini" }, "Quy định là gì?", "Member phải tôn trọng nhau.");
+    assert.equal(answer, "Theo quy định server.");
+    assert.match(requestBody.systemInstruction.parts[0].text, /Member phải tôn trọng nhau/);
+    assert.match(requestBody.systemInstruction.parts[0].text, /reference facts only/);
+  } finally {
+    globalThis.fetch = originalFetch;
+  }
+});

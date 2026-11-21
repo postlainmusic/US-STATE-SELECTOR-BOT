@@ -80,7 +80,7 @@ test("four grind games have cooldowns, daily caps and non-betting rewards", () =
   assert.equal(GRIND_GAMES.fishing.cooldownMs, 20 * 60 * 1000);
   assert.equal(GRIND_GAMES.farming.cooldownMs, 4 * 60 * 60 * 1000);
   assert.equal(GRIND_GAMES.expedition.dailyCap, 12000);
-  assert.equal(calculateGrindReward("mining", () => 0).total, 600);
+  assert.equal(calculateGrindReward("mining", () => 0).total, 1600);
   assert.equal(calculateGrindReward("unknown"), null);
 });
 

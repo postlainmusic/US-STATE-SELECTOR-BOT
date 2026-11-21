@@ -8,6 +8,15 @@ const DEFAULT_EXCLUDED_CHANNELS = new Set([
 const PRIVATE_NAME = /(^|[-_ ])(staff|admin|moderation|modlog|mod-logs|ticket|private|internal)([-_ ]|$)/i;
 const MAX_MESSAGE_LENGTH = 1800;
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
+const PROACTIVE_SILENCE = "[[SILENT]]";
+
+export function isProactiveCandidate(content) {
+  const text = String(content || "").trim();
+  if (text.length < 8 || text.length > MAX_MESSAGE_LENGTH) return false;
+  const helpSignal = /(cho hỏi|cho minh hỏi|cho mình hỏi|có ai biết|ai biết không|mọi người ơi.*\?|giúp (mình|tôi|tao|với)|help me|need help|anyone know|can someone|does anyone know|how (do|can|to)|where (can|is|do)|làm sao|ở đâu|thế nào|như nào|vì sao|tại sao|bao nhiêu|khi nào|cách nào|cách làm)/i.test(text);
+  const conflictSignal = /(cãi nhau|tranh cãi|công kích nhau|chửi nhau|đang căng|căng thẳng|bình tĩnh lại|đe dọa|bắt nạt|harass|bully|threaten)/i.test(text);
+  return helpSignal || conflictSignal;
+}
 
 function parseIds(value) {
   return String(value || "").split(",").map(x => x.trim()).filter(Boolean);
@@ -77,6 +86,15 @@ export class DiscordGateway {
     `);
     this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_community_messages_time ON community_messages(created_at)");
     this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_community_messages_channel ON community_messages(channel_id, created_at)");
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS proactive_replies (
+        id TEXT PRIMARY KEY,
+        channel_id TEXT NOT NULL,
+        author_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL
+      )
+    `);
+    this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_proactive_replies_time ON proactive_replies(created_at)");
   }
 
   async fetch(request) {
@@ -401,8 +419,77 @@ export class DiscordGateway {
         mentionInContent
       });
       await this.replyToMention(message, content);
+    } else if (isProactiveCandidate(content)) {
+      await this.replyProactively(message, content);
     }
   }
+
+  canSendProactive(channelId, authorId, now = Date.now()) {
+    const globalCount = this.ctx.storage.sql.exec(
+      "SELECT COUNT(*) AS count FROM proactive_replies WHERE created_at > ?",
+      now - 60 * 60 * 1000
+    ).toArray()[0]?.count || 0;
+    if (globalCount >= 5) return false;
+    const channelRecent = this.ctx.storage.sql.exec(
+      "SELECT COUNT(*) AS count FROM proactive_replies WHERE channel_id = ? AND created_at > ?",
+      channelId, now - 90 * 1000
+    ).toArray()[0]?.count || 0;
+    if (channelRecent > 0) return false;
+    const authorRecent = this.ctx.storage.sql.exec(
+      "SELECT COUNT(*) AS count FROM proactive_replies WHERE author_id = ? AND created_at > ?",
+      authorId, now - 3 * 60 * 1000
+    ).toArray()[0]?.count || 0;
+    return authorRecent === 0;
+  }
+
+  async replyProactively(message, rawContent) {
+    const authorId = String(message.author?.id || "");
+    if (!authorId || !this.canSendProactive(message.channel_id, authorId)) return;
+
+    try {
+      const knowledge = await this.loadKnowledge();
+      const context = this.getContext(message.channel_id);
+      const prompt = [
+        "AUTONOMOUS COMMUNITY CHECK:",
+        "A member posted the message below without mentioning you.",
+        "Decide whether this is a genuine unanswered request for help/information, or a clear moment where one brief, calm de-escalating nudge would help.",
+        "If it is ordinary conversation, banter, a rhetorical question, a personal exchange that does not need you, or an already answered question, return exactly [[SILENT]] and nothing else.",
+        "If a reply is genuinely useful, answer the member directly in the server's casual tone. Keep it concise, do not announce that you are monitoring the chat, and do not expose or repeat personal details from context.",
+        "Never infer or repeat age, school, exact location, contact details, schedules, or other identifying details. Never intervene in a way that embarrasses or targets a member.",
+        "MEMBER MESSAGE: " + rawContent
+      ].join("\n");
+      const answer = await generateAnswer(this.env, prompt, knowledge, context);
+      const cleaned = String(answer || "").trim();
+      if (!cleaned || cleaned.includes(PROACTIVE_SILENCE) || cleaned.length > 1800) return;
+
+      const response = await fetch(`${DISCORD_API}/channels/${message.channel_id}/messages`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}`,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+          content: cleaned,
+          message_reference: { message_id: message.id, fail_if_not_exists: false },
+          allowed_mentions: { parse: [] }
+        })
+      });
+      if (!response.ok) {
+        console.error("POSTLAIN AI proactive reply failed:", response.status, (await response.text()).slice(0, 300));
+        return;
+      }
+      const now = Date.now();
+      this.ctx.storage.sql.exec(
+        "INSERT OR REPLACE INTO proactive_replies (id, channel_id, author_id, created_at) VALUES (?, ?, ?, ?)",
+        message.id, message.channel_id, authorId, now
+      );
+      this.ctx.storage.sql.exec("DELETE FROM proactive_replies WHERE created_at < ?", now - 24 * 60 * 60 * 1000);
+      console.log("POSTLAIN AI proactive reply sent", { channelId: message.channel_id, messageId: message.id });
+    } catch (error) {
+      console.error("POSTLAIN AI proactive handler failed:", String(error?.message || error), error?.stack || "");
+    }
+  }
+
   async sendWelcome(memberData = {}) {
     const user = memberData.user || memberData;
     const userId = String(user.id || "");

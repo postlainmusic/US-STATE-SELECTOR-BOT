@@ -15,7 +15,7 @@ New command:
 
 ## AI provider fallback
 
-Provider order defaults to `gemini,groq,openrouter`. The first configured provider is attempted; on provider errors, the next configured provider is tried.
+Provider order defaults to `gemini,openrouter`. Gemini is tried first, then OpenRouter Free Models Router. Groq support is optional and is not included in the free-first default because its current model catalog includes metered models. The first configured provider is attempted; on provider errors, the next configured provider is tried.
 
 Cloudflare Worker secrets:
 - `GEMINI_API_KEY`
@@ -28,7 +28,7 @@ Optional Worker variables:
 - `AI_GROQ_MODEL`
 - `AI_OPENROUTER_MODEL`
 
-Default model IDs are set in `Src/ai/engine.js` and can be overridden using Worker variables if a provider changes availability.
+Default models: `gemini-3.8-flash` and `openrouter/free`. OpenRouter dynamically routes to an available free model, avoiding a hard-coded free model ID. Groq is optional; explicitly add `groq` to `AI_PROVIDER_ORDER` only if you have confirmed the chosen model and account usage are free for your account. Model availability and free limits can change.
 
 Do not put API keys in GitHub files, Discord messages, or `.dev.vars.example`. Add them as Cloudflare Worker Secrets.
 
@@ -46,4 +46,4 @@ This feature branch does not trigger the current GitHub Actions deployment workf
 - No persistent memory or channel-history access.
 - No message-content Gateway connection.
 - No moderation or server-changing tools.
-- Provider fallback is sequential and bounded by a 22-second timeout per provider.
+- Provider fallback is sequential and bounded by a 22-second timeout per provider. A persistent global cooldown / quota guard is not yet included; add it before opening `/ask` to a large public server.

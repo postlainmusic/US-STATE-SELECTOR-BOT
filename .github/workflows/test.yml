@@ -5,6 +5,7 @@ on:
     branches:
       - main
       - feature/postlain-ai-phase-1
+      - feature/community-assistant-v2
   pull_request:
     branches:
       - main

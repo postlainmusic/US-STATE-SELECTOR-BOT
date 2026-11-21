@@ -115,7 +115,7 @@ export class DiscordGateway {
       this.ctx.storage.sql.exec(
         "INSERT OR REPLACE INTO word_chain_games (channel_id, active, starter_id, current_tail, used_words, last_player_id, moves, last_move_at) VALUES (?, 1, ?, NULL, '[]', NULL, 0, ?)",
         WORD_CHAIN_CHANNEL_ID, userId, Date.now());
-      return Response.json({ ok: true, message: "🎮 **Ván nối từ POSTLAIN bắt đầu!**\\nMọi người lần lượt gửi cụm từ tiếng Việt gồm 2-5 tiếng. Người tiếp theo phải bắt đầu bằng tiếng cuối của cụm trước. Không lặp từ, không tự đi hai lượt liên tiếp. Mỗi lượt có 30 giây.\\n\\n🏁 <@" + userId + "> đã mở ván. Ai đi trước cũng được!" });
+      return Response.json({ ok: true, message: "🎮 **Ván nối từ POSTLAIN bắt đầu!**\nMọi người lần lượt gửi cụm từ tiếng Việt gồm 2-5 tiếng. Người tiếp theo phải bắt đầu bằng tiếng cuối của cụm trước. Không lặp từ, không tự đi hai lượt liên tiếp. Mỗi lượt có 30 giây.\n\n🏁 <@" + userId + "> đã mở ván. Ai đi trước cũng được!" });
     }
     if (url.pathname === "/wordchain/end" && request.method === "POST") {
       const payload = await request.json();
@@ -130,7 +130,7 @@ export class DiscordGateway {
       const rows = this.ctx.storage.sql.exec("SELECT user_id, wins, losses, moves FROM word_chain_scores ORDER BY wins DESC, moves DESC LIMIT 10").toArray();
       if (!rows.length) return Response.json({ message: "🏆 Bảng xếp hạng chưa có dữ liệu. Mở ván đầu tiên bằng /noitu start nhé!" });
       const lines = rows.map((row, index) => (index + 1) + ". <@" + row.user_id + "> · **" + row.wins + " thắng** · " + row.losses + " thua · " + row.moves + " lượt hợp lệ");
-      return Response.json({ message: "🏆 **POSTLAIN NỐI TỪ · TOP 10**\\n" + lines.join("\\n") });
+      return Response.json({ message: "🏆 **POSTLAIN NỐI TỪ · TOP 10**\n" + lines.join("\n") });
     }
     return new Response("Not found", { status: 404 });
   }
@@ -407,7 +407,7 @@ export class DiscordGateway {
 
   normalizeChainPhrase(value) {
     return String(value || "").normalize("NFC").toLocaleLowerCase("vi-VN")
-      .replace(/^[^\\p{L}]+|[^\\p{L}]+$/gu, "").replace(/\\s+/g, " ").trim();
+      .replace(/^[^\p{L}]+|[^\p{L}]+$/gu, "").replace(/\s+/g, " ").trim();
   }
 
   async handleWordChainMessage(message) {
@@ -417,7 +417,7 @@ export class DiscordGateway {
     const phrase = this.normalizeChainPhrase(message.content);
     if (!phrase || phrase.length > 80) return;
     const parts = phrase.split(" ");
-    if (parts.length < 2 || parts.length > 5 || parts.some(part => !/^[\\p{L}]+$/u.test(part))) return;
+    if (parts.length < 2 || parts.length > 5 || parts.some(part => !/^[\p{L}]+$/u.test(part))) return;
     const userId = String(message.author?.id || "");
     if (!userId) return;
     const row = this.ctx.storage.sql.exec("SELECT * FROM word_chain_games WHERE channel_id = ? AND active = 1", channelId).toArray()[0];
@@ -441,7 +441,7 @@ export class DiscordGateway {
         "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 1, 0, 0) ON CONFLICT(user_id) DO UPDATE SET wins = wins + 1", previousPlayer);
       this.ctx.storage.sql.exec(
         "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 0, 1, 0) ON CONFLICT(user_id) DO UPDATE SET losses = losses + 1", userId);
-      await this.sendWordChainMessage(channelId, "❌ <@" + userId + "> " + reason + (previousPlayer && previousPlayer !== userId ? "\\n🏆 <@" + previousPlayer + "> thắng ván này!" : "") + "\\nDùng /noitu start để mở ván mới.");
+      await this.sendWordChainMessage(channelId, "❌ <@" + userId + "> " + reason + (previousPlayer && previousPlayer !== userId ? "\n🏆 <@" + previousPlayer + "> thắng ván này!" : "") + "\nDùng /noitu start để mở ván mới.");
     };
 
     if (previousPlayer && previousPlayer === userId) {
@@ -458,7 +458,7 @@ export class DiscordGateway {
       nextTail, JSON.stringify(used), userId, now, channelId);
     this.ctx.storage.sql.exec(
       "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 0, 0, 1) ON CONFLICT(user_id) DO UPDATE SET moves = moves + 1", userId);
-    await this.sendWordChainMessage(channelId, "✅ **" + phrase + "**\\n🔗 Từ tiếp theo phải bắt đầu bằng: **" + nextTail + "**  ·  <@" + userId + "> đã nối thành công!");
+    await this.sendWordChainMessage(channelId, "✅ **" + phrase + "**\n🔗 Từ tiếp theo phải bắt đầu bằng: **" + nextTail + "**  ·  <@" + userId + "> đã nối thành công!");
   }
 
   async handleMessage(message) {

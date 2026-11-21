@@ -158,8 +158,18 @@ const commands = [
     }]
   },
   {
+    name: "money",
+    description: "Cộng Gold cho thành viên (Admin)",
+    default_member_permissions: "8",
+    dm_permission: false,
+    options: [
+      { type: 6, name: "user", description: "Thành viên nhận Gold", required: true },
+      { type: 4, name: "amount", description: "Số Gold cần cộng", required: true, min_value: 1, max_value: 1000000000 }
+    ]
+  },
+  {
     name: "daily",
-    description: "Nhận Gold hằng ngày",
+    description: "Nhận 100.000 Gold mỗi ngày",
     dm_permission: false
   },
   {
@@ -171,6 +181,19 @@ const commands = [
     name: "grank",
     description: "Xem bảng xếp hạng Gold",
     dm_permission: false
+  },
+  {
+    name: "mayman",
+    description: "Thử vận may với tỷ lệ thắng 48%",
+    dm_permission: false,
+    options: [{
+      type: 4,
+      name: "amount",
+      description: "Gold cược (10-10.000)",
+      required: true,
+      min_value: 10,
+      max_value: 10000
+    }]
   },
   {
     name: "baucua",

@@ -75,13 +75,17 @@ const PROVIDERS = {
           "HTTP-Referer": "https://postlain.com",
           "X-Title": "POSTLAIN AI Discord Assistant"
         },
-        systemPrompt
+        systemPrompt,
+        {
+          reasoning: { effort: "low" },
+          max_tokens: 1100
+        }
       );
     }
   }
 };
 
-async function openAICompatible(endpoint, apiKey, model, question, extraHeaders = {}, systemPrompt = SYSTEM_PROMPT) {
+async function openAICompatible(endpoint, apiKey, model, question, extraHeaders = {}, systemPrompt = SYSTEM_PROMPT, requestOptions = {}) {
   const response = await fetch(endpoint, {
     method: "POST",
     headers: {
@@ -95,6 +99,7 @@ async function openAICompatible(endpoint, apiKey, model, question, extraHeaders 
       models: model === "openrouter/free" ? [
         "nvidia/nemotron-3-ultra-550b-a55b:free",
         "baidu/ernie-5.5-flash-preview:free",
+        "nvidia/nemotron-3.5-lightning:free",
         "google/gemma-4-26b-a4b-it:free"
       ] : undefined,
       messages: [
@@ -102,7 +107,8 @@ async function openAICompatible(endpoint, apiKey, model, question, extraHeaders 
         { role: "user", content: question }
       ],
       temperature: 0.82,
-      max_tokens: 700
+      max_tokens: requestOptions.max_tokens || 700,
+      ...(requestOptions.reasoning ? { reasoning: requestOptions.reasoning } : {})
     })
   });
   const payload = await response.json().catch(() => ({}));

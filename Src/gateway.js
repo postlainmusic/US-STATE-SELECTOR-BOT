@@ -201,9 +201,9 @@ export class DiscordGateway {
       this.ctx.storage.sql.exec("INSERT INTO game_wallets (user_id, gold, updated_at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET gold = gold + excluded.gold, updated_at = excluded.updated_at", userId, reward, now);
       this.ctx.storage.sql.exec("INSERT INTO game_transactions (id, user_id, amount, reason, created_at) VALUES (?, ?, ?, ?, ?)", "grind:" + interactionId, userId, reward, "grind:" + game, now);
       const balance = Number(this.ctx.storage.sql.exec("SELECT gold FROM game_wallets WHERE user_id = ?", userId).toArray()[0]?.gold || 0);
-      const bonusText = roll.bonus > 0 ? "\\n✨ Thưởng hiếm: **+" + Math.min(roll.bonus, reward).toLocaleString("vi-VN") + " Gold**" : "";
+      const bonusText = roll.bonus > 0 ? "\n✨ Thưởng hiếm: **+" + Math.min(roll.bonus, reward).toLocaleString("vi-VN") + " Gold**" : "";
       return Response.json({ ok: true, game, reward, balance, earnedToday: nowEarned, dailyCap: config.dailyCap,
-        message: "🎮 **" + config.label.toUpperCase() + "**\\nBạn " + config.activity + ".\\n💰 Nhận **+" + reward.toLocaleString("vi-VN") + " Gold**" + bonusText + "\\n📦 Hôm nay: **" + nowEarned.toLocaleString("vi-VN") + "/" + config.dailyCap.toLocaleString("vi-VN") + " Gold**\\n⏱️ Hồi lượt: **" + Math.ceil(config.cooldownMs / 60000) + " phút**\\n💳 Số dư: **" + balance.toLocaleString("vi-VN") + " Gold**" });
+        message: "🎮 **" + config.label.toUpperCase() + "**\nBạn " + config.activity + ".\n💰 Nhận **+" + reward.toLocaleString("vi-VN") + " Gold**" + bonusText + "\n📦 Hôm nay: **" + nowEarned.toLocaleString("vi-VN") + "/" + config.dailyCap.toLocaleString("vi-VN") + " Gold**\n⏱️ Hồi lượt: **" + Math.ceil(config.cooldownMs / 60000) + " phút**\n💳 Số dư: **" + balance.toLocaleString("vi-VN") + " Gold**" });
     }
     if (url.pathname === "/games/daily" && request.method === "POST") {
       const payload = await request.json();
@@ -433,8 +433,8 @@ export class DiscordGateway {
       return Response.json({
         ok: true,
         count: rows.length,
-        message: "📚 **ĐỀ XUẤT TỪ ĐANG CHỜ DUYỆT**\\n" + lines.join("\\n") +
-          "\\n\\nDuyệt: `/duyet-tu id:` · Từ chối: `/tu-choi-tu id:`"
+        message: "📚 **ĐỀ XUẤT TỪ ĐANG CHỜ DUYỆT**\n" + lines.join("\n") +
+          "\n\nDuyệt: `/duyet-tu id:` · Từ chối: `/tu-choi-tu id:`"
       });
     }
     if (url.pathname === "/wordchain/review-suggestion" && request.method === "POST") {

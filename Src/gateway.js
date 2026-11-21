@@ -283,12 +283,12 @@ export class DiscordGateway {
     if (timedGame?.current_tail && Date.now() - Number(timedGame.last_move_at) >= WORD_CHAIN_TURN_MS) {
       this.ctx.storage.sql.exec("UPDATE word_chain_games SET active = 0 WHERE channel_id = ?", WORD_CHAIN_CHANNEL_ID);
       const winnerId = String(timedGame.last_player_id || "");
-      if (winnerId) this.ctx.storage.sql.exec(
+      if (winnerId && winnerId !== WORD_CHAIN_BOT_ID) this.ctx.storage.sql.exec(
         "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 1, 0, 0) ON CONFLICT(user_id) DO UPDATE SET wins = wins + 1",
         winnerId
       );
       await this.sendWordChainMessage(WORD_CHAIN_CHANNEL_ID,
-        "⏰ Hết 30 giây! Ván nối từ đã kết thúc. " + (winnerId ? "<@" + winnerId + "> thắng vì là người nối hợp lệ cuối cùng." : "Không có người thắng.") + " Gửi một cụm 2 tiếng hợp lệ vào kênh để tự mở ván mới."
+        "⏰ Hết 30 giây! Ván nối từ đã kết thúc. " + (winnerId === WORD_CHAIN_BOT_ID ? "Bot thắng vì không có lượt nối tiếp theo." : winnerId ? "<@" + winnerId + "> thắng vì là người nối hợp lệ cuối cùng." : "Không có người thắng.") + " Gửi một cụm 2 tiếng hợp lệ vào kênh để mở ván mới."
       );
     }
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {

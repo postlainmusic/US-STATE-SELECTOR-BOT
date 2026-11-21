@@ -181,13 +181,13 @@ const commands = [
   {
     name: "lock",
     description: "Lock @everyone from sending messages in this channel",
-    default_member_permissions: "16",
+    default_member_permissions: "268435456",
     dm_permission: false
   },
   {
     name: "unlock",
     description: "Restore @everyone message access in this channel",
-    default_member_permissions: "16",
+    default_member_permissions: "268435456",
     dm_permission: false
   }
 ];

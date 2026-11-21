@@ -36,6 +36,8 @@ export class DiscordGateway {
     this.lastGatewayEvent = null;
     this.lastCloseCode = null;
     this.lastCloseReason = null;
+    this.isReady = false;
+    this.readyAt = null;
     this.channelNames = new Map();
     this.channelParents = new Map();
     this.ctx.storage.sql.exec("DROP TABLE IF EXISTS community_messages");
@@ -73,6 +75,8 @@ export class DiscordGateway {
         lastGatewayEvent: this.lastGatewayEvent,
         lastCloseCode: this.lastCloseCode,
         lastCloseReason: this.lastCloseReason,
+        ready: this.isReady,
+        readyAt: this.readyAt,
         hasBotToken: Boolean(this.env.DISCORD_BOT_TOKEN)
       });
     }
@@ -139,6 +143,7 @@ export class DiscordGateway {
           this.resumeUrl = null;
           this.persistSession();
         }
+        this.isReady = false;
         this.lastCloseCode = event.code;
         this.lastCloseReason = String(event.reason || "").slice(0, 200);
         this.lastError = "Discord Gateway closed (" + event.code + "): " + (this.lastCloseReason || "no reason provided");
@@ -210,12 +215,16 @@ export class DiscordGateway {
     if (packet.op !== 0) return;
 
     if (packet.t === "READY") {
+      this.isReady = true;
+      this.readyAt = new Date().toISOString();
       this.sessionId = packet.d.session_id;
       this.resumeUrl = packet.d.resume_gateway_url;
       await this.persistSession();
       await this.refreshChannels();
       console.log("POSTLAIN Support Gateway READY.");
     } else if (packet.t === "RESUMED") {
+      this.isReady = true;
+      this.readyAt = new Date().toISOString();
       await this.refreshChannels();
       console.log("POSTLAIN Support Gateway session resumed.");
     } else if (packet.t === "CHANNEL_CREATE" || packet.t === "CHANNEL_UPDATE" || packet.t === "THREAD_CREATE") {

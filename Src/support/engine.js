@@ -18,15 +18,21 @@ const HELP_CUES = [
   "can giup", "minh can", "can hoi", "ai giup", "chi minh", "xin giup",
   "ho tro", "support", "lam sao", "the nao", "cach nao", "tai sao",
   "vi sao", "sao lai", "khong hieu", "minh bi", "toi bi", "i need",
-  "how do i", "how can i", "how to", "where can i", "where is", "why does",
+  "how do i", "how can i", "how to", "where can i", "where is", "where are", "where do i", "what is", "what are", "can i", "is there", "do i need", "why does",
   "why is", "it does not work", "doesnt work", "not working",
   "cant", "can t", "cannot", "can not", "unable to", "having trouble", "trouble with", "not sure how to", "issue with", "problem with"
 ];
 
+const BROAD_TERMS = new Set([
+  "discord", "music", "voice", "event", "rule", "rules", "feedback",
+  "spotify", "apple music", "youtube music", "playlist", "state role",
+  "access", "track"
+]);
+
 const CATEGORIES = [
   {
     key: "safety-report", priority: 100, staff: true,
-    terms: ["bao cao", "report", "scam", "scammed", "got scammed", "someone scammed me", "lua dao", "spam", "quay roi", "bat nat", "harassment", "bullying", "doxx", "doxing", "threat", "de doa", "noi dung doc hai", "vi pham", "bi lua", "tai khoan gia"],
+    terms: ["bao cao", "report user", "report someone", "report spam", "report scam", "report abuse", "scam", "scammed", "got scammed", "someone scammed me", "lua dao", "spam", "quay roi", "bat nat", "harassment", "bullying", "doxx", "doxing", "threat", "de doa", "noi dung doc hai", "vi pham", "bi lua", "tai khoan gia"],
     vi: "🛡️ **Báo cáo an toàn**\nNếu có spam, lừa đảo, quấy rối hoặc nội dung nguy hiểm, đừng tranh cãi hay đăng thông tin riêng tư công khai. Hãy gửi link tin nhắn, ảnh bằng chứng và mô tả ngắn cho Moderator/Staff. Nếu có nguy cơ tức thời, báo Staff ngay.",
     en: "🛡️ **Safety report**\nFor spam, scams, harassment, threats, or harmful content, avoid engaging publicly. Send a message link, screenshots, and a short description to a Moderator/Staff member. Contact Staff immediately if someone may be in danger.",
     followVi: "Mày đang muốn báo cáo hành vi nào, và có link tin nhắn hoặc ảnh bằng chứng không?",
@@ -73,7 +79,7 @@ const CATEGORIES = [
     followEn: "Is this a login issue, a locked/compromised account, or the Discord app malfunctioning?"
   },
   {
-    key: "server-rules", priority: 65,
+    key: "server-rules", priority: 78,
     terms: ["noi quy", "rules", "rule", "quy dinh", "luat server", "warning", "canh cao", "mute", "kick", "bi ban", "banned", "bi cam", "appeal", "khieu nai", "appeal ban", "bi phat"],
     vi: "📜 **Nội quy / xử lý vi phạm**\nĐọc phòng Rules và các thông báo được ghim. Nếu muốn khiếu nại cảnh cáo, mute, kick hoặc ban, hãy gửi cho Moderator/Staff thời điểm xảy ra, lý do hiển thị và ngữ cảnh liên quan. Không đăng thông tin cá nhân của người khác.",
     en: "📜 **Rules / moderation action**\nReview the Rules channel and pinned announcements. To appeal a warning, mute, kick, or ban, contact a Moderator/Staff member with the time, displayed reason, and relevant context. Do not publish anyone's private information.",
@@ -125,8 +131,11 @@ export function classifySupportMessage(content) {
   const ranked = CATEGORIES.map(category => {
     const hits = category.terms.filter(term => containsPhrase(text, term));
     return { category, hits, score: hits.length * 3 + (helpCue ? 2 : 0) };
-  }).filter(item => item.hits.length > 0)
-    .sort((a, b) => b.category.priority - a.category.priority || b.score - a.score);
+  }).filter(item => item.hits.length > 0 && (
+    helpCue ||
+    item.category.priority >= 90 ||
+    item.hits.some(term => !BROAD_TERMS.has(term))
+  )).sort((a, b) => b.category.priority - a.category.priority || b.score - a.score);
 
   const standaloneHelp = /^(help|sos|cuu|support|ho tro|giup voi|help me|anyone know|co ai biet)$/.test(text);
   if (!ranked.length && !helpCue && !standaloneHelp) return null;

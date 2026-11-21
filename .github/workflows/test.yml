@@ -21,7 +21,9 @@ jobs:
         with:
           node-version: 22.12
       - name: Check game module syntax
-        run: node --check Src/game-core.js
+        run: |
+          node --check Src/game-core.js
+          node --check Src/vtv-questions.js
       - name: Run tests
         run: |
           npm install

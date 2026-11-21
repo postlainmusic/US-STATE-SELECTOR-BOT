@@ -19,6 +19,8 @@ test("accepts exactly two Vietnamese syllables and rejects other formats", () =>
   assert.equal(parseTwoSyllablePhrase("con gà mái").code, "format");
   assert.equal(parseTwoSyllablePhrase("con").code, "format");
   assert.equal(parseTwoSyllablePhrase("con, gà").code, "format");
+  assert.equal(parseTwoSyllablePhrase("con gà!").code, "format");
+  assert.equal(parseTwoSyllablePhrase("😂 con gà").code, "format");
 });
 
 test("checks the complete phrase against the real bundled dictionary", () => {

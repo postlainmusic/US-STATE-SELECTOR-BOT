@@ -1,9 +1,11 @@
-# Vietnamese word list attribution
+# Vietnamese word-list attribution
 
-The bundled `Src/wordlist.js` data is derived from **Viet11K.txt** in the project [duyet/vietnamese-wordlist](https://github.com/duyet/vietnamese-wordlist), originally compiled by Duyet from the Vietnamese word-list work of Ho Ngoc Duc.
+The bundled `Src/wordlist.js` contains exact two-syllable entries filtered from **Viet74K.txt** in [duyet/vietnamese-wordlist](https://github.com/duyet/vietnamese-wordlist), compiled by Duyet from Vietnamese word-list work associated with Ho Ngoc Duc.
 
-Source: https://raw.githubusercontent.com/duyet/vietnamese-wordlist/master/Viet11K.txt
+Source: https://raw.githubusercontent.com/duyet/vietnamese-wordlist/master/Viet74K.txt
 
-The source repository identifies the word-list data as **GNU General Public License, version 2.0 (GPL-2.0)**. The bundled list is provided under the same license. See the [GPL-2.0 text](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
+The source repository identifies its word-list data as **GNU General Public License, version 2.0 (GPL-2.0)**. The filtered list is distributed under the same license. See the [GPL-2.0 text](https://www.gnu.org/licenses/old-licenses/gpl-2.0.html).
 
-This dictionary is used to check whether submitted Vietnamese words and phrases appear in the bundled lexicon. It is not exhaustive; uncommon, regional, slang, proper-name and newly coined expressions may be rejected.
+One attested example phrase, `con gà`, is included because it appears in the Vietnamese dictionary entry for `con` as a dictionary example: https://home.vndic.net/con-vi_vi.html.
+
+The game accepts only exact two-syllable phrase matches in this bundled list. It does not infer validity by checking the individual syllables separately. The source is not exhaustive; regional, slang, newly coined, and some everyday phrases may still be absent.

@@ -445,6 +445,31 @@ async function handleInteraction(interaction, env, ctx) {
       return ephemeral((await result.json()).message || "Chưa có bảng xếp hạng.");
     }
 
+    if (command === "de-xuat-tu") {
+      const userId = String(interaction.member?.user?.id || interaction.user?.id || "");
+      const word = String(optionValue(interaction, "word") || "");
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/wordchain/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, word })
+      });
+      return ephemeral((await result.json()).message || "Không gửi được đề xuất.");
+    }
+
+    if (command === "duyet-tu" || command === "tu-choi-tu") {
+      if (!hasPermission(interaction, 8)) return ephemeral("Chỉ Admin mới có thể duyệt đề xuất.");
+      const userId = String(interaction.member?.user?.id || interaction.user?.id || "");
+      const id = Number(optionValue(interaction, "id") || 0);
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/wordchain/review-suggestion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, id, isAdmin: true, action: command === "duyet-tu" ? "approve" : "reject" })
+      });
+      return ephemeral((await result.json()).message || "Không thể xử lý đề xuất.");
+    }
+
     if (command === "them-tu") {
       const GAME_CHANNEL_ID = "1573644570997035100";
       if (String(interaction.channel_id || "") !== GAME_CHANNEL_ID) return ephemeral("📚 Lệnh bổ sung từ chỉ dùng trong phòng nối từ.");

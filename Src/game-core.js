@@ -102,7 +102,7 @@ export function resolveXuxi({ choice, botChoice, amount = 0 }) {
   const bot = XUXI_CHOICES.find(item => item.value === String(botChoice));
   const bet = Number(amount);
   if (!player || !bot) return { ok: false, code: "invalid_choice" };
-  if (!Number.isSafeInteger(bet) || bet < 0 || bet > 10000) return { ok: false, code: "invalid_amount" };
+  if (!Number.isSafeInteger(bet) || bet < 10 || bet > 10000) return { ok: false, code: "invalid_amount" };
   const outcome = player.value === bot.value ? "tie" : player.beats === bot.value ? "win" : "loss";
   const net = outcome === "win" ? bet : outcome === "loss" ? -bet : 0;
   return { ok: true, player, bot, amount: bet, outcome, net };

@@ -72,7 +72,7 @@ const CATEGORIES = [
   },
   {
     key: "discord-account", priority: 70,
-    terms: ["discord", "tai khoan", "account", "dang nhap", "login", "password", "mat khau", "email", "nitro", "2fa", "two factor", "ma xac minh", "verification code", "bi hack", "hacked", "ban appeal", "disabled account"],
+    terms: ["discord", "crashing", "crashes", "keeps crashing", "tai khoan", "account", "dang nhap", "login", "password", "mat khau", "email", "nitro", "2fa", "two factor", "ma xac minh", "verification code", "bi hack", "hacked", "ban appeal", "disabled account"],
     vi: "🛠️ **Tài khoản / ứng dụng Discord**\nThử cập nhật Discord, đăng xuất rồi đăng nhập lại nếu vẫn truy cập được, và kiểm tra trang trạng thái Discord khi dịch vụ chập chờn. Nếu nghi tài khoản bị chiếm quyền, đổi mật khẩu và bật 2FA ngay. Không gửi mật khẩu, email riêng tư hoặc mã xác thực vào server.",
     en: "🛠️ **Discord account / app**\nUpdate Discord, restart the app, and check Discord's service status if things seem unavailable. If your account may be compromised, change your password and enable 2FA immediately. Never post passwords, private email details, or verification codes in the server.",
     followVi: "Mày gặp lỗi đăng nhập, tài khoản bị khóa/hack, hay ứng dụng Discord bị lỗi?",

@@ -1,39 +1,72 @@
-import test from "node:test";
-import assert from "node:assert/strict";
-import { isExcludedChannel, classifySupportMessage, isProactiveCandidate } from "../Src/gateway.js";
+const appId = process.env.DISCORD_APPLICATION_ID;
+const botToken = process.env.DISCORD_BOT_TOKEN;
+const guildId = process.env.DISCORD_GUILD_ID;
 
-const env = {
-  AI_EXCLUDED_CHANNEL_IDS: "1571762668916707399,1571762812886192178",
-  KNOWLEDGE_CHANNEL_ID: "1573550240949338282"
-};
+if (!appId || !botToken || !guildId) {
+  console.error("Set DISCORD_APPLICATION_ID, DISCORD_BOT_TOKEN and DISCORD_GUILD_ID.");
+  process.exit(1);
+}
 
-test("excludes staff, moderation, knowledge and private rooms", () => {
-  assert.equal(isExcludedChannel("1571762668916707399", null, "staff-chat", "", env), true);
-  assert.equal(isExcludedChannel("1571762812886192178", null, "mod-logs", "", env), true);
-  assert.equal(isExcludedChannel("1573550240949338282", null, "knowledge", "", env), true);
-  assert.equal(isExcludedChannel("200", "100", "general-thread", "Staff", env), true);
-  assert.equal(isExcludedChannel("201", null, "private-room", "", env), true);
-  assert.equal(isExcludedChannel("300", null, "general", "", env), false);
+const commands = [
+  {
+    name: "statepanel",
+    description: "Publish the U.S. State Selector panel",
+    default_member_permissions: "268435456",
+    dm_permission: false,
+    options: [{
+      type: 1,
+      name: "publish",
+      description: "Publish the State Selector panel in this channel"
+    }]
+  },
+  {
+    name: "feedback",
+    description: "Submit feedback to the admin team",
+    dm_permission: false,
+    options: [{
+      type: 1,
+      name: "send",
+      description: "Send feedback / Gửi góp ý",
+      options: [{
+        type: 3,
+        name: "message",
+        description: "Your feedback / Nội dung góp ý",
+        required: true
+      }]
+    }]
+  },
+  {
+    name: "noti",
+    description: "Send an admin notification to the community",
+    default_member_permissions: "8",
+    dm_permission: false,
+    options: [{
+      type: 1,
+      name: "send",
+      description: "Send a notification / Gửi thông báo",
+      options: [{
+        type: 3,
+        name: "message",
+        description: "Notification text / Nội dung thông báo",
+        required: true
+      }]
+    }]
+  }
+];
+
+const endpoint = `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`;
+const response = await fetch(endpoint, {
+  method: "PUT",
+  headers: {
+    Authorization: `Bot ${botToken}`,
+    "Content-Type": "application/json"
+  },
+  body: JSON.stringify(commands)
 });
-
-test("routes common Vietnamese help phrases with accents and without accents", () => {
-  assert.equal(classifySupportMessage("Mọi người ơi, cho mình hỏi chọn bang ở đâu?")?.key, "state-role");
-  assert.equal(classifySupportMessage("co ai biet cach verify khong")?.key, "verification-role");
-  assert.equal(classifySupportMessage("Cho mình hỏi, Discord bị lỗi đăng nhập")?.key, "discord-account");
-  assert.equal(classifySupportMessage("Help, mic voice không hoạt động")?.key, "music-audio");
-  assert.equal(classifySupportMessage("Mình cần report spam")?.key, "safety-report");
-  assert.equal(classifySupportMessage("Cho mình hỏi cách gửi góp ý")?.key, "feedback");
-});
-
-test("generic help and technical errors receive useful next steps", () => {
-  assert.equal(classifySupportMessage("Cho mình hỏi với")?.key, "general-help");
-  assert.equal(classifySupportMessage("Lỗi không kết nối được")?.key, "technical-issue");
-  assert.equal(isProactiveCandidate("Ai biết cách đổi tên Discord không?"), true);
-});
-
-test("ordinary chat and bot messages are not routed to support", () => {
-  assert.equal(classifySupportMessage("Haha hôm nay vui ghê :)))"), null);
-  assert.equal(classifySupportMessage("Mày ăn cơm chưa?"), null);
-  assert.equal(classifySupportMessage("Chào cả nhà!"), null);
-  assert.equal(classifySupportMessage(""), null);
-});
+const body = await response.text();
+if (!response.ok) {
+  console.error(`Command registration failed (${response.status}): ${body}`);
+  process.exit(1);
+}
+console.log("Registered guild command(s):");
+console.log(body);

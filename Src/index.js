@@ -1,6 +1,6 @@
 import { DiscordGateway } from "./gateway.js";
 import { handleVoiceCommand } from "./voice.js";
-import { createVtvRound } from "./vtv-questions.js";
+import { createVtvRound, VTV_QUESTIONS } from "./vtv-questions.js";
 
 export { DiscordGateway };
 
@@ -845,7 +845,7 @@ async function handleInteraction(interaction, env, ctx) {
         return json({
           type: 7,
           data: {
-            content: answer.message + "\nCâu hỏi đã khép lại.",
+            content: answer.message + "\n**Đáp án:** " + (VTV_QUESTIONS.find(item => item.id === answer.questionId)?.options[answer.answerIndex] || "Đã ghi nhận") + "\n" + (VTV_QUESTIONS.find(item => item.id === answer.questionId)?.explanation || "") ,
             embeds: [],
             components: [{
               type: 1,

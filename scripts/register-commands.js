@@ -184,6 +184,60 @@ const commands = [
     ]
   },
   {
+    name: "xu-xi",
+    description: "Chơi kéo búa bao với bot, có thể cược Gold",
+    dm_permission: false,
+    options: [
+      {
+        type: 3,
+        name: "choice",
+        description: "Chọn nước đi",
+        required: true,
+        choices: [
+          { name: "Búa", value: "bua" },
+          { name: "Kéo", value: "keo" },
+          { name: "Bao", value: "bao" }
+        ]
+      },
+      {
+        type: 4,
+        name: "amount",
+        description: "Gold cược (0-10.000, mặc định 0)",
+        required: false,
+        min_value: 0,
+        max_value: 10000
+      }
+    ]
+  },
+  {
+    name: "vtv",
+    description: "Chơi đố vui Vua Tiếng Việt",
+    dm_permission: false
+  },
+  {
+    name: "vtvrank",
+    description: "Xem bảng xếp hạng Vua Tiếng Việt",
+    dm_permission: false
+  },
+  {
+    name: "ncf",
+    description: "Tung đồng xu",
+    dm_permission: false
+  },
+  {
+    name: "ntxx",
+    description: "Tung xúc xắc",
+    dm_permission: false,
+    options: [{
+      type: 4,
+      name: "sides",
+      description: "Số mặt xúc xắc (2-1000, mặc định 6)",
+      required: false,
+      min_value: 2,
+      max_value: 1000
+    }]
+  },
+  {
     name: "coinflip",
     description: "Flip a coin",
     dm_permission: false

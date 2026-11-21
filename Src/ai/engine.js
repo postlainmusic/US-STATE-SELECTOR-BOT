@@ -132,7 +132,7 @@ export async function generateAnswer(env, question, knowledge = "", conversation
     try {
       return await provider.run({ ...env, [provider.key]: apiKey }, cleanQuestion, model, systemPrompt);
     } catch (error) {
-      attempted.push(name);
+      attempted.push(`${name} (${model}): ${String(error?.message || error).slice(0, 220)}`);
       console.warn("POSTLAIN AI provider failed:", JSON.stringify({
         provider: name,
         model,
@@ -145,5 +145,5 @@ export async function generateAnswer(env, question, knowledge = "", conversation
   if (!attempted.length) {
     throw new Error("AI chưa được cấu hình. Admin cần thêm ít nhất một API key cho Gemini, Groq hoặc OpenRouter vào Cloudflare Worker Secrets.");
   }
-  throw new Error("Các AI provider hiện không phản hồi. Hệ thống đã thử: " + attempted.join(", ") + ". Vui lòng thử lại sau.");
+  throw new Error("AI providers failed: " + attempted.join(" | "));
 }

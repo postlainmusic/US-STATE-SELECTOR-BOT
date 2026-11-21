@@ -189,6 +189,47 @@ const commands = [
     description: "Restore @everyone message access in this channel",
     default_member_permissions: "268435456",
     dm_permission: false
+  },
+
+  {
+    name: "join",
+    description: "Join your current voice channel",
+    dm_permission: false
+  },
+  {
+    name: "leave",
+    description: "Leave the current voice channel",
+    dm_permission: false
+  },
+  {
+    name: "speak",
+    description: "Read text aloud in your voice channel",
+    dm_permission: false,
+    options: [
+      { type: 3, name: "text", description: "Text for POSTLAIN to read (up to 1,200 characters)", required: true, max_length: 1200 },
+      { type: 3, name: "language", description: "Spoken language", required: true, choices: [{ name: "Vietnamese", value: "vi" },
+          { name: "English", value: "en" },
+          { name: "Japanese", value: "ja" },
+          { name: "Korean", value: "ko" },
+          { name: "Chinese", value: "zh" },
+          { name: "Spanish", value: "es" },
+          { name: "French", value: "fr" },
+          { name: "German", value: "de" },
+          { name: "Italian", value: "it" },
+          { name: "Portuguese", value: "pt" },
+          { name: "Indonesian", value: "id" },
+          { name: "Thai", value: "th" }] },
+      { type: 3, name: "gender", description: "Voice gender", required: true, choices: [{ name: "Female", value: "female" }, { name: "Male", value: "male" }] }
+    ]
+  },
+  {
+    name: "voice",
+    description: "Control POSTLAIN Voice Assistant",
+    dm_permission: false,
+    options: [
+      { type: 1, name: "status", description: "Show voice connection and playback queue" },
+      { type: 1, name: "stop", description: "Stop playback and clear the queue" }
+    ]
   }
 ];
 

@@ -337,10 +337,21 @@ export class DiscordGateway {
     if (url.pathname === "/wordchain/profile" && request.method === "GET") {
       const userId = String(url.searchParams.get("userId") || "");
       if (!userId) return Response.json({ message: "Không xác định được người chơi." }, { status: 400 });
-      const row = this.ctx.storage.sql.exec("SELECT wins, losses, moves FROM word_chain_scores WHERE user_id = ?", userId).toArray()[0];
-      if (!row) return Response.json({ message: "👤 Người chơi này chưa có thống kê nối từ. Vào phòng game và chơi một lượt nhé!" });
-      const rank = this.ctx.storage.sql.exec("SELECT COUNT(*) + 1 AS rank FROM word_chain_scores WHERE wins > ? OR (wins = ? AND moves > ?)", Number(row.wins), Number(row.wins), Number(row.moves)).toArray()[0]?.rank || 1;
-      return Response.json({ message: "👤 **HỒ SƠ NỐI TỪ**\n<@" + userId + ">\n🏆 Thắng: **" + row.wins + "**\n💔 Thua: **" + row.losses + "**\n🔗 Lượt hợp lệ: **" + row.moves + "**\n📊 Xếp hạng: **#" + rank + "**" });
+      const row = this.ctx.storage.sql.exec("SELECT wins, losses, moves FROM word_chain_scores WHERE user_id = ?", userId).toArray()[0] || {};
+      const wallet = this.ctx.storage.sql.exec("SELECT gold, daily_streak, games, wins, losses FROM game_wallets WHERE user_id = ?", userId).toArray()[0] || {};
+      const vtv = this.ctx.storage.sql.exec("SELECT correct, attempts FROM vtv_scores WHERE user_id = ?", userId).toArray()[0] || {};
+      const rank = row.wins !== undefined
+        ? this.ctx.storage.sql.exec("SELECT COUNT(*) + 1 AS rank FROM word_chain_scores WHERE wins > ? OR (wins = ? AND moves > ?)", Number(row.wins), Number(row.wins), Number(row.moves)).toArray()[0]?.rank || 1
+        : null;
+      const lines = [
+        "👤 **HỒ SƠ NGƯỜI CHƠI**",
+        "<@" + userId + ">",
+        "💰 Gold: **" + Number(wallet.gold || 0).toLocaleString("vi-VN") + "** · 🔥 Điểm danh: **" + Number(wallet.daily_streak || 0) + " ngày**",
+        "🔗 Nối từ: **" + Number(row.wins || 0) + " thắng** · **" + Number(row.losses || 0) + " thua** · **" + Number(row.moves || 0) + " lượt**" + (rank ? " · Hạng **#" + rank + "**" : ""),
+        "🎲 Mini game: **" + Number(wallet.games || 0) + " ván** · **" + Number(wallet.wins || 0) + " thắng** · **" + Number(wallet.losses || 0) + " thua**",
+        "📚 Vua Tiếng Việt: **" + Number(vtv.correct || 0) + " đúng** / " + Number(vtv.attempts || 0) + " lượt"
+      ];
+      return Response.json({ message: lines.join("\n") });
     }
     if (url.pathname === "/wordchain/suggest" && request.method === "POST") {
       const payload = await request.json();

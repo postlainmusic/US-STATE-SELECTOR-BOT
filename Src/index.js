@@ -280,19 +280,29 @@ function gameHubPanel() {
       ],
       footer: { text: "POSTLAIN GAMES  ·  Chọn một trò ở menu bên dưới" }
     }],
-    components: [{
-      type: 1,
-      components: [{
-        type: 3,
-        custom_id: "gamehub:select",
-        placeholder: "🎮  Chọn trò chơi để xem hướng dẫn",
-        min_values: 1,
-        max_values: 1,
-        options: Object.entries(GAME_HUB_ITEMS).map(([value, item]) => ({
-          label: item.label, value, description: item.description.slice(0, 100), emoji: { name: item.emoji }
-        }))
-      }]
-    }]
+    components: [
+      {
+        type: 1,
+        components: [{
+          type: 3,
+          custom_id: "gamehub:select",
+          placeholder: "🎮  Chọn trò chơi để xem hướng dẫn",
+          min_values: 1,
+          max_values: 1,
+          options: Object.entries(GAME_HUB_ITEMS).map(([value, item]) => ({
+            label: item.label, value, description: item.description.slice(0, 100), emoji: { name: item.emoji }
+          }))
+        }]
+      },
+      {
+        type: 1,
+        components: [{
+          type: 2, style: 2, custom_id: "gamehub:open",
+          label: "Mở Game Hub riêng",
+          emoji: { name: "🎮" }
+        }]
+      }
+    ]
   };
 }
 
@@ -306,6 +316,14 @@ function gameHubDetail(key) {
       type: 2, style: 1, custom_id: "gamehub:launch:" + item.launch,
       label: item.launch === "wordchain" ? "Mở ván nối từ" : item.launch === "vtv" ? "Ra câu hỏi" : "Nhận Gold hôm nay",
       emoji: { name: item.emoji }
+    }]
+  });
+  components.push({
+    type: 1,
+    components: [{
+      type: 2, style: 2, custom_id: "gamehub:open",
+      label: "Quay lại Game Hub",
+      emoji: { name: "🎮" }
     }]
   });
   return {
@@ -669,6 +687,10 @@ async function handleInteraction(interaction, env, ctx) {
       return ephemeral(`🎯 POSTLAIN chọn: **${selected.slice(0, 180)}**\n(${choices.length} lựa chọn)`);
     }
 
+    if (command === "game") {
+      return json({ type: 4, data: { ...gameHubPanel(), flags: 64, allowed_mentions: { parse: [] } } });
+    }
+
     if (command === "gamepanel" && subcommand === "publish") {
       if (!hasPermission(interaction, 8)) return ephemeral("⛔ Chỉ Admin mới được đăng bảng Game Hub.");
       return json({ type: 4, data: { ...gameHubPanel(), allowed_mentions: { parse: [] } } });
@@ -902,6 +924,7 @@ async function handleInteraction(interaction, env, ctx) {
 
   if (interaction.type === 3) {
     const customId = interaction.data?.custom_id || "";
+    if (customId === "gamehub:open") return json({ type: 4, data: { ...gameHubPanel(), flags: 64, allowed_mentions: { parse: [] } } });
     if (customId === "gamehub:select") return json({ type: 4, data: gameHubDetail(interaction.data?.values?.[0] || "") });
     if (customId.startsWith("gamehub:launch:")) {
       const action = customId.slice("gamehub:launch:".length);

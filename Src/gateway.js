@@ -730,7 +730,18 @@ export class DiscordGateway {
   async sendWordChainMessage(channelId, content) {
     const response = await fetch(DISCORD_API + "/channels/" + channelId + "/messages", {
       method: "POST", headers: { Authorization: "Bot " + this.env.DISCORD_BOT_TOKEN, "Content-Type": "application/json" },
-      body: JSON.stringify({ content, allowed_mentions: { parse: [] } })
+      body: JSON.stringify({
+        content,
+        components: [{
+          type: 1,
+          components: [{
+            type: 2, style: 2, custom_id: "gamehub:open",
+            label: "Mở Game Hub",
+            emoji: { name: "🎮" }
+          }]
+        }],
+        allowed_mentions: { parse: [] }
+      })
     });
     if (!response.ok) console.error("POSTLAIN word-chain reply failed:", response.status, (await response.text()).slice(0, 300));
   }

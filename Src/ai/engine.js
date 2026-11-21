@@ -135,7 +135,7 @@ export async function generateAnswer(env, question, knowledge = "", conversation
   if (!cleanQuestion) throw new Error("Question is empty.");
   if (cleanQuestion.length > 1800) throw new Error("Câu hỏi dài quá. Giới hạn hiện tại là 1.800 ký tự.");
 
-  const order = String(env.AI_PROVIDER_ORDER || "openrouter,gemini")
+  const order = String(env.AI_PROVIDER_ORDER || "openrouter,groq")
     .split(",")
     .map(value => value.trim().toLowerCase())
     .filter(Boolean);

@@ -274,7 +274,7 @@ export class DiscordGateway {
       const amount = Number(payload.amount || 0);
       if (!userId || !interactionId) return Response.json({ ok: false, message: "Không xác định được lượt chơi." }, { status: 400 });
       if (this.ctx.storage.sql.exec("SELECT interaction_id FROM game_action_receipts WHERE interaction_id = ?", interactionId).toArray()[0]) return Response.json({ ok: false, message: "Lượt chơi này đã được xử lý rồi." });
-      if (!Number.isSafeInteger(amount) || amount < 0 || amount > 10000) return Response.json({ ok: false, message: "Mức cược phải từ 0 đến 10.000 Gold." });
+      if (!Number.isSafeInteger(amount) || amount < 10 || amount > 10000) return Response.json({ ok: false, message: "Mức cược phải từ 10 đến 10.000 Gold." });
       const wallet = this.ctx.storage.sql.exec("SELECT gold FROM game_wallets WHERE user_id = ?", userId).toArray()[0];
       if (Number(wallet?.gold || 0) < amount) return Response.json({ ok: false, message: "Bạn không đủ Gold. Dùng `/daily` để nhận thêm." });
       const random = crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000;

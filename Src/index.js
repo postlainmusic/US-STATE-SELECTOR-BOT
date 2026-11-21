@@ -158,11 +158,6 @@ function isManageRoles(interaction) {
   return (permissions & 268435456n) === 268435456n;
 }
 
-function isAdmin(interaction) {
-  const permissions = BigInt(interaction.member?.permissions || "0");
-  return (permissions & 8n) === 8n;
-}
-
 async function handleInteraction(interaction, env, ctx) {
   if (interaction.type === 1) return json({ type: 1 });
 

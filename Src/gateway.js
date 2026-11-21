@@ -6,27 +6,8 @@ const DEFAULT_EXCLUDED_CHANNELS = new Set([
 const PRIVATE_NAME = /(^|[-_ ])(staff|admin|moderation|modlog|mod-logs|ticket|private|internal)([-_ ]|$)/i;
 const MAX_MESSAGE_LENGTH = 1800;
 
-function normalizeSupportText(value) {
-  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
-}
-export function classifySupportMessage(content) {
-  const raw = String(content || "").trim();
-  if (raw.length < 3 || raw.length > MAX_MESSAGE_LENGTH) return null;
-  const text = normalizeSupportText(raw);
-  const asks = /\b(cho minh hoi|cho hoi|cho tui hoi|giup minh|giup voi|can giup|minh can|can hoi|ai giup|chi minh|minh bi|xin giup|khong hieu|help|need help|anyone know|co ai biet|ai biet|hoi chut|hoi xiu|report|bao cao|co van de|loi|error|bug|khong duoc|khong hoat dong|khong thay|o dau|lam sao|the nao|cach nao|tai sao|vi sao|sao lai|huong dan|support|ho tro)\b/.test(text);
-  if (!asks) return null;
-  if (/(chon bang|tieu bang|doi bang|role bang|state)/.test(text)) return { key: "state-role", response: "🗺️ **Vụ chọn bang / State Role**\nMở phòng có bảng chọn bang của server, bấm danh sách và chọn bang mày đang sống. Bot sẽ tự cập nhật role, bang cũ được thay thế. Nếu bảng không hiện, chọn không được hoặc role không đổi, gửi ảnh màn hình kèm tên bang để staff kiểm tra nhé." };
-  if (/(verify|verification|xac minh|xac thuc|duyet thanh vien|cap role|nhan role|role member|vai tro|quyen truy cap|khong vao duoc kenh)/.test(text)) return { key: "verification-role", response: "🔐 **Vấn đề xác minh / nhận role**\nKiểm tra phòng hướng dẫn xác minh và làm đúng bước được ghim ở đó. Nếu đã xác minh mà vẫn không thấy phòng hoặc chưa có role, gửi ảnh màn hình và nói rõ bước bị kẹt để staff kiểm tra quyền nhé. Đừng gửi mật khẩu hay mã đăng nhập." };
-  if (/(discord|tai khoan|dang nhap|mat khau|ma xac minh|nitro|ung dung|app|dien thoai|may tinh)/.test(text)) return { key: "discord-account", response: "🛠️ **Sự cố Discord / tài khoản**\nThử cập nhật Discord, đóng mở lại ứng dụng và kiểm tra kết nối. Nếu vẫn lỗi, gửi ảnh hoặc nguyên văn thông báo lỗi, cho biết đang dùng Android, iPhone hay máy tính. Nhớ che email, số điện thoại và thông tin riêng tư." };
-  if (/(nghe nhac|phat nhac|music|audio|voice|mic|micro|tai nghe|loa)/.test(text)) return { key: "music-audio", response: "🎧 **Hỗ trợ âm thanh / âm nhạc**\nKiểm tra đúng voice channel, âm lượng Discord và quyền truy cập micro/âm thanh của ứng dụng. Nếu vẫn có vấn đề, nói rõ là không nghe được nhạc, không vào voice, mic không hoạt động hay bị rè, kèm thiết bị đang dùng." };
-  if (/(bao cao|report|vi pham|spam|quay roi|bat nat|cong kich|lua dao|scam|donate lua|noi dung doc hai|mod|moderator|admin)/.test(text)) return { key: "safety-report", response: "🛡️ **Báo cáo sự cố / hành vi vi phạm**\nĐừng đôi co hoặc công khai thông tin riêng tư. Gửi bằng chứng, link tin nhắn và mô tả ngắn cho Moderator/Staff qua kênh hỗ trợ phù hợp. Nếu có nguy cơ mất an toàn, báo staff ngay." };
-  if (/(gop y|de xuat|y tuong|phan hoi|feedback|kien nghi)/.test(text)) return { key: "feedback", response: "📮 **Gửi góp ý cho POSTLAIN**\nVào phòng góp ý và dùng /feedback send để gửi nội dung. Góp ý sẽ được chuyển đến hộp thư quản trị. Cứ nói rõ vấn đề, đề xuất và lý do, càng cụ thể càng dễ xử lý." };
-  if (/(luat|noi quy|quy dinh|rules|bi cam|bi ban|mute|kick)/.test(text)) return { key: "server-rules", response: "📜 **Nội quy server**\nTìm phòng nội quy / rules và đọc các thông báo được ghim trước nhé. Nếu có điều khoản chưa rõ hoặc nghĩ rằng mình bị xử lý nhầm, hỏi Moderator/Staff và gửi kèm ngữ cảnh liên quan." };
-  if (/(loi|error|bug|khong duoc|khong hoat dong|khong thay|crash|treo|ket noi|connection|timeout)/.test(text)) return { key: "technical-issue", response: "🧰 **Tiếp nhận lỗi kỹ thuật**\nĐể khoanh vùng nhanh, gửi giúp: (1) mày đang thao tác gì, (2) kết quả mong muốn, (3) chuyện gì thực sự xảy ra, (4) ảnh hoặc nguyên văn lỗi, (5) thiết bị đang dùng. Đừng gửi mật khẩu, token hay mã xác thực." };
-  return { key: "general-help", response: "🙋 **POSTLAIN Support đã nhận tín hiệu!**\nMày đang cần hỗ trợ gì? Viết rõ vấn đề, đang ở phòng nào và điều gì chưa hoạt động. Nếu có lỗi, gửi ảnh hoặc nguyên văn thông báo. Staff sẽ vào xử lý những việc cần quyền quản trị." };
-}
-export function isHelpRequest(content) { return Boolean(classifySupportMessage(content)); }
-export function isProactiveCandidate(content) { return Boolean(classifySupportMessage(content)); }
+export { classifySupportMessage, isHelpRequest, isProactiveCandidate } from "./support/engine.js";
+import { classifySupportMessage } from "./support/engine.js";
 
 function parseIds(value) {
   return String(value || "").split(",").map(x => x.trim()).filter(Boolean);
@@ -55,6 +36,8 @@ export class DiscordGateway {
     this.lastGatewayEvent = null;
     this.lastCloseCode = null;
     this.lastCloseReason = null;
+    this.isReady = false;
+    this.readyAt = null;
     this.channelNames = new Map();
     this.channelParents = new Map();
     this.ctx.storage.sql.exec("DROP TABLE IF EXISTS community_messages");
@@ -67,6 +50,18 @@ export class DiscordGateway {
       )
     `);
     this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_proactive_replies_time ON proactive_replies(created_at)");
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS support_sessions (
+        channel_id TEXT NOT NULL,
+        author_id TEXT NOT NULL,
+        category TEXT NOT NULL,
+        source_message_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (channel_id, author_id)
+      )
+    `);
+    this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_support_sessions_created ON support_sessions(created_at)");
+
   }
 
   async fetch(request) {
@@ -92,6 +87,8 @@ export class DiscordGateway {
         lastGatewayEvent: this.lastGatewayEvent,
         lastCloseCode: this.lastCloseCode,
         lastCloseReason: this.lastCloseReason,
+        ready: this.isReady,
+        readyAt: this.readyAt,
         hasBotToken: Boolean(this.env.DISCORD_BOT_TOKEN)
       });
     }
@@ -158,6 +155,7 @@ export class DiscordGateway {
           this.resumeUrl = null;
           this.persistSession();
         }
+        this.isReady = false;
         this.lastCloseCode = event.code;
         this.lastCloseReason = String(event.reason || "").slice(0, 200);
         this.lastError = "Discord Gateway closed (" + event.code + "): " + (this.lastCloseReason || "no reason provided");
@@ -197,7 +195,7 @@ export class DiscordGateway {
           d: {
             token: this.env.DISCORD_BOT_TOKEN,
             intents: 33281,
-            properties: { os: "cloudflare-workers", browser: "postlain-ai", device: "postlain-ai" }
+            properties: { os: "cloudflare-workers", browser: "postlain-community-assistant", device: "postlain-community-assistant" }
           }
         });
       }
@@ -229,12 +227,16 @@ export class DiscordGateway {
     if (packet.op !== 0) return;
 
     if (packet.t === "READY") {
+      this.isReady = true;
+      this.readyAt = new Date().toISOString();
       this.sessionId = packet.d.session_id;
       this.resumeUrl = packet.d.resume_gateway_url;
       await this.persistSession();
       await this.refreshChannels();
       console.log("POSTLAIN Support Gateway READY.");
     } else if (packet.t === "RESUMED") {
+      this.isReady = true;
+      this.readyAt = new Date().toISOString();
       await this.refreshChannels();
       console.log("POSTLAIN Support Gateway session resumed.");
     } else if (packet.t === "CHANNEL_CREATE" || packet.t === "CHANNEL_UPDATE" || packet.t === "THREAD_CREATE") {
@@ -353,17 +355,106 @@ export class DiscordGateway {
     if (!message.channel_id || message.author?.bot || message.webhook_id) return;
     const content = String(message.content || "").trim().slice(0, MAX_MESSAGE_LENGTH);
     if (!content || await this.isExcluded(message.channel_id, message)) return;
+
+    const authorId = String(message.author?.id || "");
+    if (!authorId) return;
+    const normalized = content.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase();
+    const session = this.getSupportSession(message.channel_id, authorId);
+
+    if (session && /\b(staff|moderator|moderators|mod|admin|human)\b/.test(normalized)) {
+      if (!this.canSendProactive(message.channel_id, authorId, Date.now(), true)) return;
+      let escalationMessage = message;
+      if (session.sourceMessageId) {
+        try {
+          const originalResponse = await fetch(DISCORD_API + "/channels/" + message.channel_id + "/messages/" + session.sourceMessageId, { headers: { Authorization: "Bot " + this.env.DISCORD_BOT_TOKEN } });
+          if (originalResponse.ok) {
+            const original = await originalResponse.json();
+            escalationMessage = { ...message, id: original.id, content: "Original request: " + String(original.content || "").slice(0, 700) + "\nMember follow-up: " + content.slice(0, 180) };
+          }
+        } catch (error) {
+          console.warn("Could not fetch original support message for escalation:", String(error?.message || error));
+        }
+      }
+      const notified = await this.notifyStaff(escalationMessage, session.category, "member-requested-human");
+      const reply = notified
+        ? "📨 Mình đã chuyển yêu cầu đến Staff. Hãy chờ đội ngũ phản hồi. Đừng gửi mật khẩu hoặc mã xác thực."
+        : "⚠️ Chưa chuyển được yêu cầu tự động. Bạn hãy liên hệ Moderator trực tiếp trong server nhé.";
+      await this.replyWithSupport(message, reply);
+      this.clearSupportSession(message.channel_id, authorId);
+      return;
+    }
+
+    if (session && /^(thanks|thank you|thx|tks|ty|ok|okay|got it|cam on|da duoc|ok roi|resolved|done|fixed|solved)$/.test(normalized)) {
+      this.clearSupportSession(message.channel_id, authorId);
+      return;
+    }
+
     const support = classifySupportMessage(content);
     if (!support) return;
-    const authorId = String(message.author?.id || "");
-    if (!authorId || !this.canSendProactive(message.channel_id, authorId)) return;
-    console.log("POSTLAIN support keyword detected", { category: support.key, channelId: message.channel_id, messageId: message.id });
-    await this.replyWithSupport(message, support.response);
+    if (!this.canSendProactive(message.channel_id, authorId)) return;
+
+    console.log("POSTLAIN support topic detected", { category: support.key, channelId: message.channel_id, messageId: message.id });
+    const suggestedChannel = this.findSuggestedChannel(support.key);
+    const replyParts = [support.response, support.followUp];
+    if (suggestedChannel) replyParts.push("🔎 Relevant room: <#" + suggestedChannel + ">");
+    const reply = replyParts.filter(Boolean).join("\n\n");
+    const sent = await this.replyWithSupport(message, reply);
+    if (sent) this.saveSupportSession(message.channel_id, authorId, support.key, message.id);
+    if (support.requiresStaff) await this.notifyStaff(message, support.key, "automatic-safety-escalation");
   }
 
-  canSendProactive(channelId, authorId, now = Date.now()) {
+  getSupportSession(channelId, authorId) {
+    const now = Date.now();
+    const row = this.ctx.storage.sql.exec(
+      "SELECT category, source_message_id, created_at FROM support_sessions WHERE channel_id = ? AND author_id = ?",
+      channelId, authorId
+    ).toArray()[0];
+    if (!row) return null;
+    if (now - Number(row.created_at) > 15 * 60 * 1000) {
+      this.clearSupportSession(channelId, authorId);
+      return null;
+    }
+    return { category: row.category, sourceMessageId: row.source_message_id };
+  }
+
+  saveSupportSession(channelId, authorId, category, sourceMessageId) {
+    const now = Date.now();
+    this.ctx.storage.sql.exec(
+      "INSERT OR REPLACE INTO support_sessions (channel_id, author_id, category, source_message_id, created_at) VALUES (?, ?, ?, ?, ?)",
+      channelId, authorId, category, sourceMessageId, now
+    );
+    this.ctx.storage.sql.exec("DELETE FROM support_sessions WHERE created_at < ?", now - 24 * 60 * 60 * 1000);
+  }
+
+  clearSupportSession(channelId, authorId) {
+    this.ctx.storage.sql.exec(
+      "DELETE FROM support_sessions WHERE channel_id = ? AND author_id = ?",
+      channelId, authorId
+    );
+  }
+
+  findSuggestedChannel(category) {
+    const hints = {
+      "state-role": ["state-selector", "state-roles", "choose-state", "state-role"],
+      "verification-access": ["verification", "verify", "start-here", "onboarding"],
+      "feedback": ["feedback", "suggestions"],
+      "server-rules": ["rules", "server-rules"],
+      "events-community": ["events", "announcements"],
+      "music-playback": ["music", "listening", "playlists"],
+      "voice-audio": ["voice", "audio", "voice-chat"]
+    }[category] || [];
+    if (!hints.length) return null;
+    for (const [channelId, channelName] of this.channelNames.entries()) {
+      const name = String(channelName || "").toLowerCase();
+      if (hints.some(hint => name.includes(hint))) return channelId;
+    }
+    return null;
+  }
+
+  canSendProactive(channelId, authorId, now = Date.now(), isFollowUp = false) {
     const globalCount = this.ctx.storage.sql.exec("SELECT COUNT(*) AS count FROM proactive_replies WHERE created_at > ?", now - 60 * 60 * 1000).toArray()[0]?.count || 0;
     if (globalCount >= 8) return false;
+    if (isFollowUp) return true;
     const channelRecent = this.ctx.storage.sql.exec("SELECT COUNT(*) AS count FROM proactive_replies WHERE channel_id = ? AND created_at > ?", channelId, now - 60 * 1000).toArray()[0]?.count || 0;
     if (channelRecent > 0) return false;
     const authorRecent = this.ctx.storage.sql.exec("SELECT COUNT(*) AS count FROM proactive_replies WHERE author_id = ? AND created_at > ?", authorId, now - 2 * 60 * 1000).toArray()[0]?.count || 0;
@@ -384,12 +475,53 @@ export class DiscordGateway {
     });
     if (!response.ok) {
       console.error("POSTLAIN support reply failed:", response.status, (await response.text()).slice(0, 300));
-      return;
+      return false;
     }
     const now = Date.now();
     this.ctx.storage.sql.exec("INSERT OR REPLACE INTO proactive_replies (id, channel_id, author_id, created_at) VALUES (?, ?, ?, ?)", message.id, message.channel_id, authorId, now);
     this.ctx.storage.sql.exec("DELETE FROM proactive_replies WHERE created_at < ?", now - 24 * 60 * 60 * 1000);
     console.log("POSTLAIN support reply sent", { channelId: message.channel_id, messageId: message.id });
+    return true;
+  }
+
+  async notifyStaff(message, category, escalationType = "automatic-safety-escalation") {
+    const staffChannelId = String(this.env.SUPPORT_STAFF_CHANNEL_ID || "");
+    const authorId = String(message.author?.id || "");
+    if (!staffChannelId || !authorId) return false;
+    const excerpt = String(message.content || "").trim().slice(0, 900) || "(no text content)";
+    const jumpUrl = "https://discord.com/channels/" + this.env.DISCORD_GUILD_ID + "/" + message.channel_id + "/" + message.id;
+    try {
+      const response = await fetch(DISCORD_API + "/channels/" + staffChannelId + "/messages", {
+        method: "POST",
+        headers: { Authorization: "Bot " + this.env.DISCORD_BOT_TOKEN, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          embeds: [{
+            color: 0xE05D5D,
+            title: escalationType === "member-requested-human" ? "🙋 HUMAN SUPPORT REQUEST" : "🛡️ COMMUNITY SUPPORT ESCALATION",
+            description: escalationType === "member-requested-human" ? "A member asked for direct human support." : "A member submitted a safety report that needs Staff review.",
+            fields: [
+              { name: "Category", value: String(category), inline: true },
+              { name: "Member", value: "<@" + authorId + ">  ·  " + authorId, inline: true },
+              { name: "Channel", value: "<#" + message.channel_id + ">", inline: true },
+              { name: "Message", value: excerpt, inline: false },
+              { name: "Open original", value: "[Jump to message](" + jumpUrl + ")", inline: false }
+            ],
+            timestamp: new Date().toISOString(),
+            footer: { text: "POSTLAIN Community Assistant" }
+          }],
+          allowed_mentions: { parse: [] }
+        })
+      });
+      if (!response.ok) {
+        console.error("POSTLAIN Staff escalation failed:", response.status, (await response.text()).slice(0, 300));
+        return false;
+      }
+      console.log("POSTLAIN safety report routed to Staff", { channelId: message.channel_id, messageId: message.id });
+      return true;
+    } catch (error) {
+      console.error("POSTLAIN Staff escalation error:", String(error?.message || error));
+      return false;
+    }
   }
 
 }

@@ -437,6 +437,10 @@ export default {
     if (request.method === "GET" && url.pathname === "/health") {
       return json({ ok: true, service: "state-selector-bot" });
     }
+    if (request.method === "GET" && url.pathname === "/gateway/status") {
+      const gatewayId = env.GATEWAY.idFromName("postlain-ai-gateway");
+      return env.GATEWAY.get(gatewayId).fetch("https://gateway/status");
+    }
     if (request.method !== "POST" || url.pathname !== "/interactions") {
       return json({ error: "Not found" }, 404);
     }

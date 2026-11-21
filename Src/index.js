@@ -192,7 +192,7 @@ function helpPanel(category = "games") {
       fields: [
         { name: "Nối từ", value: "Gửi cụm gồm **2 tiếng**. Tiếng đầu phải khớp với tiếng cuối của lượt trước. Không lặp cụm và không đi hai lượt liên tiếp. Mỗi lượt có 30 giây.", inline: false },
         { name: "Lệnh", value: "`/noitu start` mở ván · `/noitu end` kết thúc · `/noitu score` xem bảng xếp hạng", inline: false },
-        { name: "Hồ sơ & từ điển", value: "`/nme` hồ sơ nối từ · `/nrank` top nối từ · `/them-tu` bổ sung cụm từ (Admin)", inline: false },
+        { name: "Hồ sơ & từ điển", value: "`/nme` hồ sơ · `/nrank` bảng xếp hạng · `/de-xuat-tu` đề xuất cụm còn thiếu · `/them-tu` thêm từ (Admin) · `/duyet-tu` duyệt (Admin)", inline: false },
         { name: "Gold & mini game", value: "`/daily` nhận Gold · `/ngold` xem số dư · `/grank` bảng xếp hạng · `/baucua` chơi Bầu Cua", inline: false }
       ]
     },
@@ -443,6 +443,31 @@ async function handleInteraction(interaction, env, ctx) {
       const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
       const result = await gateway.fetch("https://gateway/wordchain/leaderboard");
       return ephemeral((await result.json()).message || "Chưa có bảng xếp hạng.");
+    }
+
+    if (command === "de-xuat-tu") {
+      const userId = String(interaction.member?.user?.id || interaction.user?.id || "");
+      const word = String(optionValue(interaction, "word") || "");
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/wordchain/suggest", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, word })
+      });
+      return ephemeral((await result.json()).message || "Không gửi được đề xuất.");
+    }
+
+    if (command === "duyet-tu" || command === "tu-choi-tu") {
+      if (!hasPermission(interaction, 8)) return ephemeral("Chỉ Admin mới có thể duyệt đề xuất.");
+      const userId = String(interaction.member?.user?.id || interaction.user?.id || "");
+      const id = Number(optionValue(interaction, "id") || 0);
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/wordchain/review-suggestion", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, id, isAdmin: true, action: command === "duyet-tu" ? "approve" : "reject" })
+      });
+      return ephemeral((await result.json()).message || "Không thể xử lý đề xuất.");
     }
 
     if (command === "them-tu") {

@@ -89,6 +89,44 @@ const commands = [
     dm_permission: false
   },
   {
+    name: "de-xuat-tu",
+    description: "Đề xuất cụm từ còn thiếu trong từ điển nối từ",
+    dm_permission: false,
+    options: [{
+      type: 3,
+      name: "word",
+      description: "Cụm tiếng Việt gồm đúng 2 tiếng",
+      required: true,
+      max_length: 80
+    }]
+  },
+  {
+    name: "duyet-tu",
+    description: "Duyệt một đề xuất từ (Admin)",
+    default_member_permissions: "8",
+    dm_permission: false,
+    options: [{
+      type: 4,
+      name: "id",
+      description: "Mã đề xuất",
+      required: true,
+      min_value: 1
+    }]
+  },
+  {
+    name: "tu-choi-tu",
+    description: "Từ chối một đề xuất từ (Admin)",
+    default_member_permissions: "8",
+    dm_permission: false,
+    options: [{
+      type: 4,
+      name: "id",
+      description: "Mã đề xuất",
+      required: true,
+      min_value: 1
+    }]
+  },
+  {
     name: "them-tu",
     description: "Add an exact two-syllable phrase to the curated dictionary (Admin)",
     default_member_permissions: "8",

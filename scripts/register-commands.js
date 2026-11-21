@@ -203,6 +203,11 @@ const commands = [
     dm_permission: false
   },
   {
+    name: "baucua",
+    description: "Chơi Bầu Cua bằng Gold ảo",
+    dm_permission: false,
+    options: [
+      {
         type: 3,
         name: "animal",
         description: "Chọn một cửa",

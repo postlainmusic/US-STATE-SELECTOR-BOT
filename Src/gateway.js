@@ -139,11 +139,28 @@ export class DiscordGateway {
       this.ctx.storage.sql.exec("UPDATE word_chain_games SET active = 0 WHERE channel_id = ?", WORD_CHAIN_CHANNEL_ID);
       return Response.json({ ok: true, message: "🛑 Đã kết thúc ván nối từ. Dùng /noitu score để xem bảng xếp hạng." });
     }
-    if (url.pathname === "/wordchain/score" && request.method === "GET") {
-      const rows = this.ctx.storage.sql.exec("SELECT user_id, wins, losses, moves FROM word_chain_scores ORDER BY wins DESC, moves DESC LIMIT 10").toArray();
-      if (!rows.length) return Response.json({ message: "🏆 Bảng xếp hạng chưa có dữ liệu. Mở ván đầu tiên bằng /noitu start nhé!" });
-      const lines = rows.map((row, index) => (index + 1) + ". <@" + row.user_id + "> · **" + row.wins + " thắng** · " + row.losses + " thua · " + row.moves + " lượt hợp lệ");
-      return Response.json({ message: "🏆 **POSTLAIN NỐI TỪ · TOP 10**\n" + lines.join("\n") });
+    if ((url.pathname === "/wordchain/score" || url.pathname === "/wordchain/leaderboard") && request.method === "GET") {
+      const rows = this.ctx.storage.sql.exec("SELECT user_id, wins, losses, moves FROM word_chain_scores ORDER BY wins DESC, moves DESC LIMIT 20").toArray();
+      if (!rows.length) return Response.json({ message: "🏆 Bảng xếp hạng chưa có dữ liệu. Vào phòng nối từ và gửi một cụm 2 tiếng hợp lệ để bắt đầu nhé!" });
+      const lines = rows.map((row, index) => (index + 1) + ". <@" + row.user_id + "> · **" + row.wins + " thắng** · " + row.losses + " thua · " + row.moves + " lượt");
+      return Response.json({ message: "🏆 **POSTLAIN NỐI TỪ · TOP 20**\n" + lines.join("\n") });
+    }
+    if (url.pathname === "/wordchain/profile" && request.method === "GET") {
+      const userId = String(url.searchParams.get("userId") || "");
+      if (!userId) return Response.json({ message: "Không xác định được người chơi." }, { status: 400 });
+      const row = this.ctx.storage.sql.exec("SELECT wins, losses, moves FROM word_chain_scores WHERE user_id = ?", userId).toArray()[0];
+      if (!row) return Response.json({ message: "👤 Người chơi này chưa có thống kê nối từ. Vào phòng game và chơi một lượt nhé!" });
+      const rank = this.ctx.storage.sql.exec("SELECT COUNT(*) + 1 AS rank FROM word_chain_scores WHERE wins > ? OR (wins = ? AND moves > ?)", Number(row.wins), Number(row.wins), Number(row.moves)).toArray()[0]?.rank || 1;
+      return Response.json({ message: "👤 **HỒ SƠ NỐI TỪ**\n<@" + userId + ">\n🏆 Thắng: **" + row.wins + "**\n💔 Thua: **" + row.losses + "**\n🔗 Lượt hợp lệ: **" + row.moves + "**\n📊 Xếp hạng: **#" + rank + "**" });
+    }
+    if (url.pathname === "/wordchain/add-word" && request.method === "POST") {
+      const payload = await request.json();
+      if (!payload.isAdmin) return Response.json({ ok: false, message: "Chỉ Admin mới được bổ sung từ điển." }, { status: 403 });
+      const parsed = parseTwoSyllablePhrase(payload.word);
+      if (!parsed.ok) return Response.json({ ok: false, message: "Từ bổ sung phải có đúng 2 tiếng tiếng Việt." }, { status: 400 });
+      if (VIETNAMESE_WORDS.has(parsed.phrase)) return Response.json({ ok: true, message: "Cụm này đã có sẵn trong từ điển gốc." });
+      this.ctx.storage.sql.exec("INSERT OR IGNORE INTO word_chain_custom_words (phrase, added_by, added_at) VALUES (?, ?, ?)", parsed.phrase, String(payload.userId || "admin"), Date.now());
+      return Response.json({ ok: true, message: "📚 Đã bổ sung **" + parsed.phrase + "** vào từ điển POSTLAIN. Từ này có thể dùng ngay." });
     }
     return new Response("Not found", { status: 404 });
   }

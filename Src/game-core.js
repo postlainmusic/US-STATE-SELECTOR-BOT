@@ -47,9 +47,9 @@ export function getRankLabel(rank) {
 export function buildWordChainReplyIndex(dictionary) {
   const index = new Map();
   for (const value of dictionary || []) {
-    const phrase = String(value || "").normalize("NFC").toLocaleLowerCase("vi-VN").trim().replace(/\\s+/gu, " ");
+    const phrase = String(value || "").normalize("NFC").toLocaleLowerCase("vi-VN").trim().replace(/\s+/gu, " ");
     const parts = phrase.split(" ");
-    if (parts.length !== 2 || parts.some(part => !/^\\p{L}+$/u.test(part))) continue;
+    if (parts.length !== 2 || parts.some(part => !/^\p{L}+$/u.test(part))) continue;
     if (!index.has(parts[0])) index.set(parts[0], []);
     index.get(parts[0]).push(phrase);
   }

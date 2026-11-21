@@ -1,5 +1,6 @@
 import { VIETNAMESE_WORDS } from "./wordlist.js";
 import { VIETNAMESE_PLAYER_WORDS, VIETNAMESE_CURATED_WORDS } from "./wordlist-player.js";
+import { VIETNAMESE_COMMUNITY_WORDS } from "./wordlist-community.js";
 import { normalizeVietnamesePhrase, parseTwoSyllablePhrase, validateDictionaryPhrase, validateChainMove } from "./wordchain-core.js";
 import { BAU_CUA_ANIMALS, calculateBauCuaResult, getDailyReward, getVietnamDateKey, buildWordChainReplyIndex, chooseWordChainReply, XUXI_CHOICES, resolveXuxi } from "./game-core.js";
 const DISCORD_API = "https://discord.com/api/v10";
@@ -11,7 +12,7 @@ const PRIVATE_NAME = /(^|[-_ ])(staff|admin|moderation|modlog|mod-logs|ticket|pr
 const MAX_MESSAGE_LENGTH = 1800;
 const WORD_CHAIN_CHANNEL_ID = "1573644570997035100";
 const WORD_CHAIN_TURN_MS = 30_000;
-const WORD_CHAIN_DICTIONARY = new Set([...VIETNAMESE_WORDS, ...VIETNAMESE_PLAYER_WORDS, ...VIETNAMESE_CURATED_WORDS]);
+const WORD_CHAIN_DICTIONARY = new Set([...VIETNAMESE_WORDS, ...VIETNAMESE_PLAYER_WORDS, ...VIETNAMESE_CURATED_WORDS, ...VIETNAMESE_COMMUNITY_WORDS]);
 const WORD_CHAIN_REPLY_INDEX = buildWordChainReplyIndex(WORD_CHAIN_DICTIONARY);
 const WORD_CHAIN_BOT_ID = "POSTLAIN_GAME_BOT";
 

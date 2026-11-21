@@ -440,7 +440,10 @@ export class DiscordGateway {
     const row = this.ctx.storage.sql.exec("SELECT * FROM word_chain_games WHERE channel_id = ? AND active = 1", channelId).toArray()[0];
     if (!row) return;
     const now = Date.now();
-    // Accept an exact lexicon phrase, or a natural phrase whose every syllable is a known Vietnamese dictionary entry.\n    // The source lexicon is sparse for everyday combinations such as "con gà" and "học sinh".\n    const knownSyllables = parts.every(part => VIETNAMESE_WORDS.has(part));\n    if (!VIETNAMESE_WORDS.has(phrase) && !knownSyllables) {
+    // Accept an exact lexicon phrase, or a natural phrase whose every syllable is a known Vietnamese dictionary entry.
+    // The source lexicon is sparse for everyday combinations such as "con gà" and "học sinh".
+    const knownSyllables = parts.every(part => VIETNAMESE_WORDS.has(part));
+    if (!VIETNAMESE_WORDS.has(phrase) && !knownSyllables) {
       await this.sendWordChainMessage(channelId, "📖 **" + phrase + "** chưa có trong từ điển của trò chơi. Hãy dùng một từ/cụm từ tiếng Việt phổ biến có trong từ điển nhé.");
       return;
     }

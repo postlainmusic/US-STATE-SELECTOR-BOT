@@ -10,6 +10,11 @@ const MAX_MESSAGE_LENGTH = 1800;
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 const PROACTIVE_SILENCE = "[[SILENT]]";
 
+export function isHelpRequest(content) {
+  const text = String(content || "").trim();
+  return text.length >= 8 && /(cho hỏi|cho minh hỏi|cho mình hỏi|có ai biết|ai biết không|mọi người ơi.*\\?|giúp (mình|tôi|tao|với)|help me|need help|anyone know|can someone|does anyone know|how (do|can|to)|where (can|is|do)|làm sao|ở đâu|thế nào|như nào|vì sao|tại sao|bao nhiêu|khi nào|cách nào|cách làm)/i.test(text);
+}
+
 export function isProactiveCandidate(content) {
   const text = String(content || "").trim();
   if (text.length < 8 || text.length > MAX_MESSAGE_LENGTH) return false;
@@ -459,14 +464,26 @@ export class DiscordGateway {
         "AUTONOMOUS COMMUNITY CHECK:",
         "A member posted the message below without mentioning you.",
         "Decide whether this is a genuine unanswered request for help/information, or a clear moment where one brief, calm de-escalating nudge would help.",
-        "If it is ordinary conversation, banter, a rhetorical question, a personal exchange that does not need you, or an already answered question, return exactly [[SILENT]] and nothing else.",
+        "If the member message is a clear help/information question, you MUST answer it directly and MUST NOT return [[SILENT]]. For all other ordinary conversation, banter, rhetorical questions, or already answered questions, return exactly [[SILENT]] and nothing else.",
         "If a reply is genuinely useful, answer the member directly in the server's casual tone. Keep it concise, do not announce that you are monitoring the chat, and do not expose or repeat personal details from context.",
         "Never infer or repeat age, school, exact location, contact details, schedules, or other identifying details. Never intervene in a way that embarrasses or targets a member.",
         "MEMBER MESSAGE: " + rawContent
       ].join("\n");
-      const answer = await generateAnswer(this.env, prompt, knowledge, context);
-      const cleaned = String(answer || "").trim();
-      if (!cleaned || cleaned.includes(PROACTIVE_SILENCE) || cleaned.length > 1800) return;
+      let answer = await generateAnswer(this.env, prompt, knowledge, context);
+      let cleaned = String(answer || "").trim();
+      if (isHelpRequest(rawContent) && (!cleaned || cleaned.includes(PROACTIVE_SILENCE))) {
+        answer = await generateAnswer(
+          this.env,
+          "Trả lời trực tiếp câu hỏi sau bằng tiếng Việt, ngắn gọn và hữu ích. Không được im lặng, không trả về [[SILENT]]. Nếu thiếu dữ kiện, nói rõ điều cần biết. Câu hỏi: " + rawContent,
+          knowledge,
+          context
+        );
+        cleaned = String(answer || "").trim();
+      }
+      if (!cleaned || cleaned.includes(PROACTIVE_SILENCE) || cleaned.length > 1800) {
+        if (isHelpRequest(rawContent)) throw new Error("AI returned no usable answer for a clear help request.");
+        return;
+      }
 
       const response = await fetch(`${DISCORD_API}/channels/${message.channel_id}/messages`, {
         method: "POST",

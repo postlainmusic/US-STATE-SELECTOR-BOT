@@ -43,3 +43,23 @@ export function getRankLabel(rank) {
   if (!Number.isInteger(n) || n < 1) return "Chưa xếp hạng";
   return "#" + n;
 }
+
+export function buildWordChainReplyIndex(dictionary) {
+  const index = new Map();
+  for (const value of dictionary || []) {
+    const phrase = String(value || "").normalize("NFC").toLocaleLowerCase("vi-VN").trim().replace(/\\s+/gu, " ");
+    const parts = phrase.split(" ");
+    if (parts.length !== 2 || parts.some(part => !/^\\p{L}+$/u.test(part))) continue;
+    if (!index.has(parts[0])) index.set(parts[0], []);
+    index.get(parts[0]).push(phrase);
+  }
+  return index;
+}
+
+export function chooseWordChainReply(index, currentTail, usedWords = [], randomValue = Math.random()) {
+  const used = usedWords instanceof Set ? usedWords : new Set(usedWords);
+  const candidates = (index.get(String(currentTail || "")) || []).filter(phrase => !used.has(phrase));
+  if (!candidates.length) return null;
+  const safeRandom = Math.max(0, Math.min(0.999999999, Number(randomValue) || 0));
+  return candidates[Math.floor(safeRandom * candidates.length)];
+}

@@ -51,5 +51,10 @@ test("expanded player dictionary includes attested common phrases and curated ex
   assert.equal(validateDictionaryPhrase("gà mái", dictionary).ok, true);
   assert.equal(validateDictionaryPhrase("gái tây", dictionary).ok, true);
   assert.equal(validateDictionaryPhrase("tây tạng", dictionary).ok, true);
+  assert.equal(validateDictionaryPhrase("nhật bản", dictionary).ok, true);
+  assert.equal(validateDictionaryPhrase("bản đồ", dictionary).ok, true);
+  assert.equal(validateDictionaryPhrase("đồ chơi", dictionary).ok, true);
+  assert.equal(validateDictionaryPhrase("chơi game", dictionary).ok, true);
+  assert.equal(validateDictionaryPhrase("game thủ", dictionary).ok, true);
   assert.equal(validateDictionaryPhrase("con gà", dictionary).ok, true);
 });

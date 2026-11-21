@@ -240,8 +240,19 @@ async function handleInteraction(interaction, env, ctx) {
     }
 
     if (command === "knowledge") {
-      try { return await handleKnowledgeCommand(interaction, env); }
-      catch (error) { console.error("POSTLAIN knowledge command failed:", error); return json({ type: 4, data: { content: "⚠️ Không thể xử lý kho kiến thức. Kiểm tra quyền bot trong phòng knowledge.", flags: 64 } }); }
+      const deferred = json({ type: 5, data: { flags: 64 } });
+      const work = (async () => {
+        try {
+          const result = await handleKnowledgeCommand(interaction, env);
+          const payload = await result.json();
+          await editInteractionResponse(env, interaction, payload.data?.content || "Đã xử lý xong.");
+        } catch (error) {
+          console.error("POSTLAIN knowledge command failed:", error);
+          await editInteractionResponse(env, interaction, "⚠️ Không thể xử lý kho kiến thức. Kiểm tra quyền bot trong phòng knowledge.");
+        }
+      })();
+      ctx.waitUntil(work);
+      return deferred;
     }
 
     // Community feedback relay: accept feedback only from the designated room.

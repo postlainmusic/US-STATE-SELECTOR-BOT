@@ -1,0 +1,22 @@
+name: Register Discord Commands
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  register:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - name: Register guild commands
+        run: npm run register-commands
+        env:
+          DISCORD_APPLICATION_ID: "1571711138482233445"
+          DISCORD_GUILD_ID: "1571711138482233445"
+          DISCORD_BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}

@@ -12,7 +12,7 @@ A serverless Discord interaction bot for a one-state-per-member role selector.
 - All non-state roles are preserved.
 - `/statepanel publish` publishes the persistent component panel.
 - Member utilities: `/help`, `/ping`, `/serverinfo`, `/userinfo`, `/avatar`, `/report send`.
-- Community fun: `/poll create`, `/coinflip`, `/roll`, `/choose`, `/noitu start`, `/noitu end`, `/noitu score`.
+- Community fun: `/poll create`, `/coinflip`, `/roll`, `/choose`, `/noitu end`, `/noitu score`. Word-chain play starts automatically when someone posts a valid phrase in the dedicated room; no start command is needed.
 - Moderation utilities: `/purge`, `/slowmode`, `/lock`, `/unlock` (permission-gated).
 - Community workflows: `/feedback send`, `/noti send` (Admin selects a text or announcement channel as the destination).
 - Voice Assistant: `/join`, `/leave`, `/speak`, `/voice status`, `/voice stop` with 12 languages and male/female voices.
@@ -20,7 +20,7 @@ A serverless Discord interaction bot for a one-state-per-member role selector.
 
 ## Architecture
 
-Discord Interactions Endpoint handles slash commands and component interactions. The Durable Object Gateway subscribes to GUILDS, GUILD_MESSAGES and MESSAGE_CONTENT only to support the dedicated word-chain room. The message handler immediately filters to channel `1573644570997035100`; messages from every other channel are ignored. Support requests must be submitted explicitly through slash commands.
+Discord Interactions Endpoint handles slash commands and component interactions. The Durable Object Gateway subscribes to GUILDS, GUILD_MESSAGES and MESSAGE_CONTENT only to support the dedicated word-chain room. The message handler immediately filters to channel `1573644570997035100`; messages from every other channel are ignored. In that room, a round starts automatically on the first valid two-syllable phrase. Every move must be exactly two Vietnamese syllables and match an exact entry in the bundled dictionary. No guessed combinations are accepted. Support requests must be submitted explicitly through slash commands.
 
 The optional Voice Assistant runs as a separate Node.js 22.12+ service. Cloudflare Workers continue to handle slash commands; the voice service uses discord.js and the DAVE-capable `@discordjs/voice` 0.19 line for real-time voice connections. Text-to-speech uses the Edge TTS command-line client with selectable male/female neural voices in 12 languages. The service is protected by a shared secret and should be exposed through Cloudflare Tunnel, not a public unauthenticated port.
 

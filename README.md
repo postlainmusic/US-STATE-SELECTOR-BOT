@@ -12,11 +12,11 @@ A serverless Discord interaction bot for a one-state-per-member role selector.
 - All non-state roles are preserved.
 - `/statepanel publish` publishes the persistent component panel.
 - `/health` is a lightweight health check.
+- POSTLAIN Support detects help requests in permitted channels and replies with built-in guidance. Ordinary chat is ignored. New-member greetings are handled by Carl-bot.
 
 ## Architecture
 
-Discord Interactions Endpoint → Cloudflare Worker → Discord REST API.
-No always-on process, Gateway connection, VPS, or GitHub Actions keep-alive is required. GitHub Actions only deploys on commits.
+Discord Interactions Endpoint and a Cloudflare Durable Object Gateway handle commands and live community messages. The Gateway uses keyword/rule-based support routing only. It does not call AI providers and does not retain message history. Staff, moderation, ticket and private rooms are excluded.
 
 ## 1. Create the Discord application
 

@@ -2,6 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { VIETNAMESE_WORDS } from "../Src/wordlist.js";
 import { VIETNAMESE_PLAYER_WORDS, VIETNAMESE_CURATED_WORDS } from "../Src/wordlist-player.js";
+import { VIETNAMESE_COMMUNITY_WORDS } from "../Src/wordlist-community.js";
 import {
   normalizeVietnamesePhrase,
   parseTwoSyllablePhrase,
@@ -47,7 +48,7 @@ test("enforces chain, repeat and turn-taking rules", () => {
 });
 
 test("expanded player dictionary includes attested common phrases and curated examples", () => {
-  const dictionary = new Set([...VIETNAMESE_WORDS, ...VIETNAMESE_PLAYER_WORDS, ...VIETNAMESE_CURATED_WORDS]);
+  const dictionary = new Set([...VIETNAMESE_WORDS, ...VIETNAMESE_PLAYER_WORDS, ...VIETNAMESE_CURATED_WORDS, ...VIETNAMESE_COMMUNITY_WORDS]);
   assert.equal(validateDictionaryPhrase("gà mái", dictionary).ok, true);
   assert.equal(validateDictionaryPhrase("gái tây", dictionary).ok, true);
   assert.equal(validateDictionaryPhrase("tây tạng", dictionary).ok, true);
@@ -57,4 +58,14 @@ test("expanded player dictionary includes attested common phrases and curated ex
   assert.equal(validateDictionaryPhrase("chơi game", dictionary).ok, true);
   assert.equal(validateDictionaryPhrase("game thủ", dictionary).ok, true);
   assert.equal(validateDictionaryPhrase("con gà", dictionary).ok, true);
+});
+
+
+test("community dictionary accepts common phrases and preserves strict two-syllable validation", () => {
+  const dictionary = new Set([...VIETNAMESE_WORDS, ...VIETNAMESE_PLAYER_WORDS, ...VIETNAMESE_CURATED_WORDS, ...VIETNAMESE_COMMUNITY_WORDS]);
+  for (const phrase of ["mạng xã hội", "đăng nhập", "thành phố", "trò chơi", "sức khỏe", "máy tính", "tài khoản", "phát triển", "tương lai", "xã hội"]) {
+    assert.equal(validateDictionaryPhrase(phrase, dictionary).ok, true, phrase);
+  }
+  assert.equal(validateDictionaryPhrase("mạng xã hội", dictionary).code, "format");
+  assert.equal(validateDictionaryPhrase("xyz abc", dictionary).code, "not_found");
 });

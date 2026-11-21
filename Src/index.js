@@ -360,6 +360,38 @@ async function handleInteraction(interaction, env, ctx) {
       }
     }
 
+    if (command === "nme") {
+      const GAME_CHANNEL_ID = "1573644570997035100";
+      if (String(interaction.channel_id || "") !== GAME_CHANNEL_ID) return ephemeral("🎮 Lệnh hồ sơ chỉ dùng trong phòng nối từ.");
+      const targetId = String(optionValue(interaction, "user") || interaction.member?.user?.id || interaction.user?.id || "");
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/wordchain/profile?userId=" + encodeURIComponent(targetId));
+      return ephemeral((await result.json()).message || "Chưa lấy được hồ sơ.");
+    }
+
+    if (command === "nrank") {
+      const GAME_CHANNEL_ID = "1573644570997035100";
+      if (String(interaction.channel_id || "") !== GAME_CHANNEL_ID) return ephemeral("🎮 Bảng xếp hạng chỉ dùng trong phòng nối từ.");
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/wordchain/leaderboard");
+      return ephemeral((await result.json()).message || "Chưa có bảng xếp hạng.");
+    }
+
+    if (command === "them-tu") {
+      const GAME_CHANNEL_ID = "1573644570997035100";
+      if (String(interaction.channel_id || "") !== GAME_CHANNEL_ID) return ephemeral("📚 Lệnh bổ sung từ chỉ dùng trong phòng nối từ.");
+      if (!hasPermission(interaction, 8)) return ephemeral("⛔ Chỉ Admin mới được bổ sung từ điển để tránh thêm từ sai.");
+      const word = String(optionValue(interaction, "word") || "");
+      const userId = String(interaction.member?.user?.id || interaction.user?.id || "");
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/wordchain/add-word", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ word, userId, isAdmin: true })
+      });
+      return ephemeral((await result.json()).message || "Không thể bổ sung từ.");
+    }
+
     if (command === "coinflip") {
       const result = crypto.getRandomValues(new Uint8Array(1))[0] % 2 === 0 ? "🪙 **Heads**" : "🪙 **Tails**";
       return ephemeral(result);
@@ -393,7 +425,7 @@ async function handleInteraction(interaction, env, ctx) {
             title: "POSTLAIN COMMUNITY TOOLKIT",
             description: "Một bộ công cụ cho thành viên và đội ngũ quản trị.",
             fields: [
-              { name: "🙋 Thành viên", value: "`/help` · `/ping` · `/serverinfo` · `/userinfo` · `/avatar` · `/report send` · `/poll create` · `/coinflip` · `/roll` · `/choose` · `/noitu start/end/score`", inline: false },
+              { name: "🙋 Thành viên", value: "`/help` · `/ping` · `/serverinfo` · `/userinfo` · `/avatar` · `/report send` · `/poll create` · `/coinflip` · `/roll` · `/choose` · `/noitu end` · `/nme` · `/nrank` · `/them-tu`", inline: false },
               { name: "🔊 Voice Assistant", value: "`/join` · `/leave` · `/speak` · `/voice status` · `/voice stop`", inline: false },
               { name: "🗺️ Cộng đồng", value: "`/statepanel publish` · `/feedback send`", inline: false },
               { name: "🛡️ Quản trị", value: "`/noti send` · `/purge` · `/slowmode` · `/lock` · `/unlock`", inline: false }

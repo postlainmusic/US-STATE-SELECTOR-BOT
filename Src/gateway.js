@@ -1,4 +1,5 @@
 import { VIETNAMESE_WORDS } from "./wordlist.js";
+import { normalizeVietnamesePhrase, parseTwoSyllablePhrase, validateDictionaryPhrase, validateChainMove } from "./wordchain-core.js";
 const DISCORD_API = "https://discord.com/api/v10";
 const DEFAULT_EXCLUDED_CHANNELS = new Set([
   "1571762668916707399", // Staff chat
@@ -75,6 +76,17 @@ export class DiscordGateway {
         user_id TEXT PRIMARY KEY, wins INTEGER NOT NULL DEFAULT 0,
         losses INTEGER NOT NULL DEFAULT 0, moves INTEGER NOT NULL DEFAULT 0
       )`);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS word_chain_custom_words (
+        phrase TEXT PRIMARY KEY, added_by TEXT NOT NULL, added_at INTEGER NOT NULL
+      )`);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS word_chain_suggestions (
+        id INTEGER PRIMARY KEY AUTOINCREMENT, phrase TEXT NOT NULL,
+        submitted_by TEXT NOT NULL, submitted_at INTEGER NOT NULL,
+        status TEXT NOT NULL DEFAULT 'pending'
+      )`);
+    this.ctx.storage.sql.exec(`CREATE TABLE IF NOT EXISTS word_chain_processed_messages (message_id TEXT PRIMARY KEY, processed_at INTEGER NOT NULL)`);
 
   }
 
@@ -128,11 +140,28 @@ export class DiscordGateway {
       this.ctx.storage.sql.exec("UPDATE word_chain_games SET active = 0 WHERE channel_id = ?", WORD_CHAIN_CHANNEL_ID);
       return Response.json({ ok: true, message: "🛑 Đã kết thúc ván nối từ. Dùng /noitu score để xem bảng xếp hạng." });
     }
-    if (url.pathname === "/wordchain/score" && request.method === "GET") {
-      const rows = this.ctx.storage.sql.exec("SELECT user_id, wins, losses, moves FROM word_chain_scores ORDER BY wins DESC, moves DESC LIMIT 10").toArray();
-      if (!rows.length) return Response.json({ message: "🏆 Bảng xếp hạng chưa có dữ liệu. Mở ván đầu tiên bằng /noitu start nhé!" });
-      const lines = rows.map((row, index) => (index + 1) + ". <@" + row.user_id + "> · **" + row.wins + " thắng** · " + row.losses + " thua · " + row.moves + " lượt hợp lệ");
-      return Response.json({ message: "🏆 **POSTLAIN NỐI TỪ · TOP 10**\n" + lines.join("\n") });
+    if ((url.pathname === "/wordchain/score" || url.pathname === "/wordchain/leaderboard") && request.method === "GET") {
+      const rows = this.ctx.storage.sql.exec("SELECT user_id, wins, losses, moves FROM word_chain_scores ORDER BY wins DESC, moves DESC LIMIT 20").toArray();
+      if (!rows.length) return Response.json({ message: "🏆 Bảng xếp hạng chưa có dữ liệu. Vào phòng nối từ và gửi một cụm 2 tiếng hợp lệ để bắt đầu nhé!" });
+      const lines = rows.map((row, index) => (index + 1) + ". <@" + row.user_id + "> · **" + row.wins + " thắng** · " + row.losses + " thua · " + row.moves + " lượt");
+      return Response.json({ message: "🏆 **POSTLAIN NỐI TỪ · TOP 20**\n" + lines.join("\n") });
+    }
+    if (url.pathname === "/wordchain/profile" && request.method === "GET") {
+      const userId = String(url.searchParams.get("userId") || "");
+      if (!userId) return Response.json({ message: "Không xác định được người chơi." }, { status: 400 });
+      const row = this.ctx.storage.sql.exec("SELECT wins, losses, moves FROM word_chain_scores WHERE user_id = ?", userId).toArray()[0];
+      if (!row) return Response.json({ message: "👤 Người chơi này chưa có thống kê nối từ. Vào phòng game và chơi một lượt nhé!" });
+      const rank = this.ctx.storage.sql.exec("SELECT COUNT(*) + 1 AS rank FROM word_chain_scores WHERE wins > ? OR (wins = ? AND moves > ?)", Number(row.wins), Number(row.wins), Number(row.moves)).toArray()[0]?.rank || 1;
+      return Response.json({ message: "👤 **HỒ SƠ NỐI TỪ**\n<@" + userId + ">\n🏆 Thắng: **" + row.wins + "**\n💔 Thua: **" + row.losses + "**\n🔗 Lượt hợp lệ: **" + row.moves + "**\n📊 Xếp hạng: **#" + rank + "**" });
+    }
+    if (url.pathname === "/wordchain/add-word" && request.method === "POST") {
+      const payload = await request.json();
+      if (!payload.isAdmin) return Response.json({ ok: false, message: "Chỉ Admin mới được bổ sung từ điển." }, { status: 403 });
+      const parsed = parseTwoSyllablePhrase(payload.word);
+      if (!parsed.ok) return Response.json({ ok: false, message: "Từ bổ sung phải có đúng 2 tiếng tiếng Việt." }, { status: 400 });
+      if (VIETNAMESE_WORDS.has(parsed.phrase)) return Response.json({ ok: true, message: "Cụm này đã có sẵn trong từ điển gốc." });
+      this.ctx.storage.sql.exec("INSERT OR IGNORE INTO word_chain_custom_words (phrase, added_by, added_at) VALUES (?, ?, ?)", parsed.phrase, String(payload.userId || "admin"), Date.now());
+      return Response.json({ ok: true, message: "📚 Đã bổ sung **" + parsed.phrase + "** vào từ điển POSTLAIN. Từ này có thể dùng ngay." });
     }
     return new Response("Not found", { status: 404 });
   }
@@ -423,95 +452,72 @@ export class DiscordGateway {
   }
 
   normalizeChainPhrase(value) {
-    return String(value || "").normalize("NFC").toLocaleLowerCase("vi-VN")
-      .replace(/^[^\p{L}]+|[^\p{L}]+$/gu, "").replace(/\s+/g, " ").trim();
+    return normalizeVietnamesePhrase(value);
   }
 
   async handleWordChainMessage(message) {
     const channelId = WORD_CHAIN_CHANNEL_ID;
     if (!message || String(message.guild_id || "") !== String(this.env.DISCORD_GUILD_ID || "")) return;
     if (String(message.channel_id || "") !== channelId || message.author?.bot || message.webhook_id) return;
-    const phrase = this.normalizeChainPhrase(message.content);
-    if (!phrase || phrase.length > 80) return;
-    const parts = phrase.split(" ");
-    if (parts.length !== 2 || parts.some(part => !/^[\p{L}]+$/u.test(part))) {
-      await this.sendWordChainMessage(channelId, "📖 Mỗi lượt chỉ được gửi **đúng 2 tiếng**. Ví dụ: **con gà**.");
+    if (message.id) {
+      const seen = this.ctx.storage.sql.exec("SELECT message_id FROM word_chain_processed_messages WHERE message_id = ?", String(message.id)).toArray()[0];
+      if (seen) return;
+      this.ctx.storage.sql.exec("INSERT OR IGNORE INTO word_chain_processed_messages (message_id, processed_at) VALUES (?, ?)", String(message.id), Date.now());
+      this.ctx.storage.sql.exec("DELETE FROM word_chain_processed_messages WHERE processed_at < ?", Date.now() - 86400000);
+    }
+    const parsed = parseTwoSyllablePhrase(message.content);
+    if (!parsed.ok) {
+      if (parsed.code === "format") await this.sendWordChainMessage(channelId, "📖 Mỗi lượt chỉ nhận cụm **đúng 2 tiếng**. Ví dụ: **con gà**.");
       return;
     }
     const userId = String(message.author?.id || "");
     if (!userId) return;
+    const custom = this.ctx.storage.sql.exec("SELECT phrase FROM word_chain_custom_words WHERE phrase = ?", parsed.phrase).toArray().length > 0;
+    const checked = validateDictionaryPhrase(parsed.phrase, VIETNAMESE_WORDS, custom ? new Set([parsed.phrase]) : new Set());
+    if (!checked.ok) {
+      await this.sendWordChainMessage(channelId, "📚 **" + parsed.phrase + "** chưa có trong từ điển POSTLAIN. Bot không tự đoán từ. Nếu từ đúng, nhờ Admin bổ sung bằng lệnh /them-tu.");
+      return;
+    }
     const now = Date.now();
-    if (!VIETNAMESE_WORDS.has(phrase)) {
-      await this.sendWordChainMessage(channelId, "📚 **" + phrase + "** không có trong từ điển trò chơi. Bot chỉ nhận cụm 2 tiếng có trong dữ liệu từ điển, không tự đoán bằng cách ghép từng tiếng.");
-      return;
-    }
-
-    let row = this.ctx.storage.sql.exec("SELECT * FROM word_chain_games WHERE channel_id = ? AND active = 1", channelId).toArray()[0];
-    // No slash command is needed: the first valid phrase automatically opens a new round.
+    const row = this.ctx.storage.sql.exec("SELECT * FROM word_chain_games WHERE channel_id = ? AND active = 1", channelId).toArray()[0];
     if (!row) {
-      const used = [phrase];
-      this.ctx.storage.sql.exec(
-        "INSERT OR REPLACE INTO word_chain_games (channel_id, active, starter_id, current_tail, used_words, last_player_id, moves, last_move_at) VALUES (?, 1, ?, ?, ?, ?, 1, ?)",
-        channelId, userId, parts[1], JSON.stringify(used), userId, now
-      );
-      this.ctx.storage.sql.exec(
-        "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 0, 0, 1) ON CONFLICT(user_id) DO UPDATE SET moves = moves + 1",
-        userId
-      );
+      this.ctx.storage.sql.exec("INSERT OR REPLACE INTO word_chain_games (channel_id, active, starter_id, current_tail, used_words, last_player_id, moves, last_move_at) VALUES (?, 1, ?, ?, ?, ?, 1, ?)", channelId, userId, parsed.last, JSON.stringify([parsed.phrase]), userId, now);
+      this.ctx.storage.sql.exec("INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 0, 0, 1) ON CONFLICT(user_id) DO UPDATE SET moves = moves + 1", userId);
       await this.ctx.storage.setAlarm(now + WORD_CHAIN_TURN_MS);
-      await this.sendWordChainMessage(channelId,
-        "🎮 **Ván nối từ tự động bắt đầu!**\n✅ **" + phrase + "**\n🔗 Người tiếp theo nối bằng tiếng: **" + parts[1] + "**\n⏱️ Mỗi lượt có 30 giây. Chỉ dùng cụm đúng 2 tiếng có trong từ điển."
-      );
+      await this.sendWordChainMessage(channelId, "🎮 **POSTLAIN NỐI TỪ đã bắt đầu!**\n✅ **" + parsed.phrase + "**\n🔗 Người tiếp theo nối bằng tiếng: **" + parsed.last + "**\n⏱️ 30 giây mỗi lượt.");
       return;
     }
-
     const used = (() => { try { return JSON.parse(row.used_words || "[]"); } catch { return []; } })();
     const previousPlayer = String(row.last_player_id || "");
     const previousTail = String(row.current_tail || "");
-
     if (previousTail && row.last_move_at && now - Number(row.last_move_at) >= WORD_CHAIN_TURN_MS) {
       this.ctx.storage.sql.exec("UPDATE word_chain_games SET active = 0 WHERE channel_id = ?", channelId);
-      if (previousPlayer) this.ctx.storage.sql.exec(
-        "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 1, 0, 0) ON CONFLICT(user_id) DO UPDATE SET wins = wins + 1", previousPlayer);
-      await this.sendWordChainMessage(channelId, "⏰ Hết 30 giây! <@" + previousPlayer + "> thắng ván trước. Cụm hợp lệ này sẽ mở ván mới.");
-      this.ctx.storage.sql.exec(
-        "INSERT OR REPLACE INTO word_chain_games (channel_id, active, starter_id, current_tail, used_words, last_player_id, moves, last_move_at) VALUES (?, 1, ?, ?, ?, ?, 1, ?)",
-        channelId, userId, parts[1], JSON.stringify([phrase]), userId, now
-      );
-      this.ctx.storage.sql.exec(
-        "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 0, 0, 1) ON CONFLICT(user_id) DO UPDATE SET moves = moves + 1",
-        userId
-      );
+      if (previousPlayer) this.ctx.storage.sql.exec("INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 1, 0, 0) ON CONFLICT(user_id) DO UPDATE SET wins = wins + 1", previousPlayer);
+      await this.sendWordChainMessage(channelId, "⏰ Hết giờ! <@" + previousPlayer + "> thắng ván trước. Cụm hợp lệ này mở ván mới.");
+      this.ctx.storage.sql.exec("INSERT OR REPLACE INTO word_chain_games (channel_id, active, starter_id, current_tail, used_words, last_player_id, moves, last_move_at) VALUES (?, 1, ?, ?, ?, ?, 1, ?)", channelId, userId, parsed.last, JSON.stringify([parsed.phrase]), userId, now);
+      this.ctx.storage.sql.exec("INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 0, 0, 1) ON CONFLICT(user_id) DO UPDATE SET moves = moves + 1", userId);
       await this.ctx.storage.setAlarm(now + WORD_CHAIN_TURN_MS);
-      await this.sendWordChainMessage(channelId, "🎮 **Ván mới bắt đầu!** ✅ **" + phrase + "**\n🔗 Nối bằng tiếng: **" + parts[1] + "**");
+      await this.sendWordChainMessage(channelId, "🎮 **Ván mới!** ✅ **" + parsed.phrase + "**\n🔗 Nối bằng tiếng: **" + parsed.last + "**");
       return;
     }
-
-    const fail = async reason => {
+    const move = validateChainMove({ parsed, currentTail: previousTail, usedWords: used, lastPlayerId: previousPlayer, userId });
+    if (move.code === "same_player") {
+      await this.sendWordChainMessage(channelId, "⏳ Chờ người khác nối lượt nhé.");
+      return;
+    }
+    const loseRound = async reason => {
       this.ctx.storage.sql.exec("UPDATE word_chain_games SET active = 0 WHERE channel_id = ?", channelId);
-      if (previousPlayer && previousPlayer !== userId) this.ctx.storage.sql.exec(
-        "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 1, 0, 0) ON CONFLICT(user_id) DO UPDATE SET wins = wins + 1", previousPlayer);
-      this.ctx.storage.sql.exec(
-        "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 0, 1, 0) ON CONFLICT(user_id) DO UPDATE SET losses = losses + 1", userId);
-      await this.sendWordChainMessage(channelId, "❌ <@" + userId + "> " + reason + (previousPlayer && previousPlayer !== userId ? "\n🏆 <@" + previousPlayer + "> thắng ván này!" : "") + "\nGửi một cụm 2 tiếng hợp lệ để tự mở ván mới.");
+      if (previousPlayer && previousPlayer !== userId) this.ctx.storage.sql.exec("INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 1, 0, 0) ON CONFLICT(user_id) DO UPDATE SET wins = wins + 1", previousPlayer);
+      this.ctx.storage.sql.exec("INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 0, 1, 0) ON CONFLICT(user_id) DO UPDATE SET losses = losses + 1", userId);
+      await this.sendWordChainMessage(channelId, "❌ <@" + userId + "> " + reason + (previousPlayer && previousPlayer !== userId ? "\n🏆 <@" + previousPlayer + "> thắng ván này!" : "") + "\nCụm hợp lệ tiếp theo sẽ tự mở ván mới.");
     };
-
-    if (previousPlayer && previousPlayer === userId) {
-      await this.sendWordChainMessage(channelId, "⏳ Chờ người khác nối từ nhé, không tự đi hai lượt liên tiếp!");
-      return;
-    }
-    if (used.includes(phrase)) { await fail("cụm từ **" + phrase + "** đã được dùng rồi. Trùng từ, thua ván!"); return; }
-    if (previousTail && parts[0] !== previousTail) { await fail("nối sai! Cụm từ phải bắt đầu bằng **" + previousTail + "**."); return; }
-
-    const nextTail = parts[1];
-    used.push(phrase);
-    this.ctx.storage.sql.exec(
-      "UPDATE word_chain_games SET current_tail = ?, used_words = ?, last_player_id = ?, moves = moves + 1, last_move_at = ? WHERE channel_id = ? AND active = 1",
-      nextTail, JSON.stringify(used), userId, now, channelId);
-    this.ctx.storage.sql.exec(
-      "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 0, 0, 1) ON CONFLICT(user_id) DO UPDATE SET moves = moves + 1", userId);
+    if (move.code === "repeated") { await loseRound("đã dùng cụm **" + parsed.phrase + "** rồi. Trùng từ, thua ván!"); return; }
+    if (move.code === "wrong_chain") { await loseRound("nối sai! Phải bắt đầu bằng tiếng **" + move.expected + "**."); return; }
+    used.push(parsed.phrase);
+    this.ctx.storage.sql.exec("UPDATE word_chain_games SET current_tail = ?, used_words = ?, last_player_id = ?, moves = moves + 1, last_move_at = ? WHERE channel_id = ? AND active = 1", move.nextTail, JSON.stringify(used), userId, now, channelId);
+    this.ctx.storage.sql.exec("INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 0, 0, 1) ON CONFLICT(user_id) DO UPDATE SET moves = moves + 1", userId);
     await this.ctx.storage.setAlarm(now + WORD_CHAIN_TURN_MS);
-    await this.sendWordChainMessage(channelId, "✅ **" + phrase + "**\n🔗 Từ tiếp theo phải bắt đầu bằng: **" + nextTail + "**  ·  <@" + userId + "> đã nối thành công!");
+    await this.sendWordChainMessage(channelId, "✅ **" + parsed.phrase + "**\n🔗 Tiếng tiếp theo: **" + move.nextTail + "**");
   }
 
   async handleMessage(message) {

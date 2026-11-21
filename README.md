@@ -15,6 +15,7 @@ A serverless Discord interaction bot for a one-state-per-member role selector.
 - Community fun: `/poll create`, `/coinflip`, `/roll`, `/choose`.
 - Moderation utilities: `/purge`, `/slowmode`, `/lock`, `/unlock` (permission-gated).
 - Community workflows: `/feedback send`, `/noti send`.
+- Voice Assistant: `/join`, `/leave`, `/speak`, `/voice status`, `/voice stop` with 12 languages and male/female voices.
 - POSTLAIN Community Assistant detects support topics in permitted channels, responds in Vietnamese or English, asks one clarifying question, and routes safety reports to the private Staff room. Ordinary chat is ignored. New-member greetings are handled by Carl-bot.
 
 ## Architecture

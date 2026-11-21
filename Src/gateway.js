@@ -50,6 +50,18 @@ export class DiscordGateway {
       )
     `);
     this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_proactive_replies_time ON proactive_replies(created_at)");
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS support_sessions (
+        channel_id TEXT NOT NULL,
+        author_id TEXT NOT NULL,
+        category TEXT NOT NULL,
+        source_message_id TEXT NOT NULL,
+        created_at INTEGER NOT NULL,
+        PRIMARY KEY (channel_id, author_id)
+      )
+    `);
+    this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_support_sessions_created ON support_sessions(created_at)");
+
   }
 
   async fetch(request) {
@@ -343,17 +355,70 @@ export class DiscordGateway {
     if (!message.channel_id || message.author?.bot || message.webhook_id) return;
     const content = String(message.content || "").trim().slice(0, MAX_MESSAGE_LENGTH);
     if (!content || await this.isExcluded(message.channel_id, message)) return;
+
+    const authorId = String(message.author?.id || "");
+    if (!authorId) return;
+    const normalized = content.normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase();
+    const session = this.getSupportSession(message.channel_id, authorId);
+
+    if (session && /\b(staff|moderator|moderators|mod|admin|human)\b/.test(normalized)) {
+      if (!this.canSendProactive(message.channel_id, authorId)) return;
+      const notified = await this.notifyStaff(message, session.category, "member-requested-human");
+      const reply = notified
+        ? "📨 Mình đã chuyển yêu cầu đến Staff. Hãy chờ đội ngũ phản hồi. Đừng gửi mật khẩu hoặc mã xác thực."
+        : "⚠️ Chưa chuyển được yêu cầu tự động. Bạn hãy liên hệ Moderator trực tiếp trong server nhé.";
+      await this.replyWithSupport(message, reply);
+      this.clearSupportSession(message.channel_id, authorId);
+      return;
+    }
+
+    if (session && /^(thanks|thank you|thx|tks|ty|ok|okay|got it|cam on|da duoc|ok roi|resolved|done|fixed|solved)$/.test(normalized)) {
+      this.clearSupportSession(message.channel_id, authorId);
+      return;
+    }
+
     const support = classifySupportMessage(content);
     if (!support) return;
-    const authorId = String(message.author?.id || "");
-    if (!authorId || !this.canSendProactive(message.channel_id, authorId)) return;
+    if (!this.canSendProactive(message.channel_id, authorId)) return;
+
     console.log("POSTLAIN support topic detected", { category: support.key, channelId: message.channel_id, messageId: message.id });
     const suggestedChannel = this.findSuggestedChannel(support.key);
     const replyParts = [support.response, support.followUp];
     if (suggestedChannel) replyParts.push("🔎 Relevant room: <#" + suggestedChannel + ">");
     const reply = replyParts.filter(Boolean).join("\n\n");
-    await this.replyWithSupport(message, reply);
-    if (support.requiresStaff) await this.notifyStaff(message, support.key);
+    const sent = await this.replyWithSupport(message, reply);
+    if (sent) this.saveSupportSession(message.channel_id, authorId, support.key, message.id);
+    if (support.requiresStaff) await this.notifyStaff(message, support.key, "automatic-safety-escalation");
+  }
+
+  getSupportSession(channelId, authorId) {
+    const now = Date.now();
+    const row = this.ctx.storage.sql.exec(
+      "SELECT category, source_message_id, created_at FROM support_sessions WHERE channel_id = ? AND author_id = ?",
+      channelId, authorId
+    ).toArray()[0];
+    if (!row) return null;
+    if (now - Number(row.created_at) > 15 * 60 * 1000) {
+      this.clearSupportSession(channelId, authorId);
+      return null;
+    }
+    return { category: row.category, sourceMessageId: row.source_message_id };
+  }
+
+  saveSupportSession(channelId, authorId, category, sourceMessageId) {
+    const now = Date.now();
+    this.ctx.storage.sql.exec(
+      "INSERT OR REPLACE INTO support_sessions (channel_id, author_id, category, source_message_id, created_at) VALUES (?, ?, ?, ?, ?)",
+      channelId, authorId, category, sourceMessageId, now
+    );
+    this.ctx.storage.sql.exec("DELETE FROM support_sessions WHERE created_at < ?", now - 24 * 60 * 60 * 1000);
+  }
+
+  clearSupportSession(channelId, authorId) {
+    this.ctx.storage.sql.exec(
+      "DELETE FROM support_sessions WHERE channel_id = ? AND author_id = ?",
+      channelId, authorId
+    );
   }
 
   findSuggestedChannel(category) {
@@ -397,15 +462,16 @@ export class DiscordGateway {
     });
     if (!response.ok) {
       console.error("POSTLAIN support reply failed:", response.status, (await response.text()).slice(0, 300));
-      return;
+      return false;
     }
     const now = Date.now();
     this.ctx.storage.sql.exec("INSERT OR REPLACE INTO proactive_replies (id, channel_id, author_id, created_at) VALUES (?, ?, ?, ?)", message.id, message.channel_id, authorId, now);
     this.ctx.storage.sql.exec("DELETE FROM proactive_replies WHERE created_at < ?", now - 24 * 60 * 60 * 1000);
     console.log("POSTLAIN support reply sent", { channelId: message.channel_id, messageId: message.id });
+    return true;
   }
 
-  async notifyStaff(message, category) {
+  async notifyStaff(message, category, escalationType = "automatic-safety-escalation") {
     const staffChannelId = String(this.env.SUPPORT_STAFF_CHANNEL_ID || "");
     const authorId = String(message.author?.id || "");
     if (!staffChannelId || !authorId) return false;
@@ -418,8 +484,8 @@ export class DiscordGateway {
         body: JSON.stringify({
           embeds: [{
             color: 0xE05D5D,
-            title: "🛡️ COMMUNITY SUPPORT ESCALATION",
-            description: "A member submitted a safety report that needs Staff review.",
+            title: escalationType === "member-requested-human" ? "🙋 HUMAN SUPPORT REQUEST" : "🛡️ COMMUNITY SUPPORT ESCALATION",
+            description: escalationType === "member-requested-human" ? "A member asked for direct human support." : "A member submitted a safety report that needs Staff review.",
             fields: [
               { name: "Category", value: String(category), inline: true },
               { name: "Member", value: "<@" + authorId + ">  ·  " + authorId, inline: true },

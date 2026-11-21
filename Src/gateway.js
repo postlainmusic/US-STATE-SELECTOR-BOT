@@ -263,6 +263,34 @@ export class DiscordGateway {
       const rank = this.ctx.storage.sql.exec("SELECT COUNT(*) + 1 AS rank FROM word_chain_scores WHERE wins > ? OR (wins = ? AND moves > ?)", Number(row.wins), Number(row.wins), Number(row.moves)).toArray()[0]?.rank || 1;
       return Response.json({ message: "👤 **HỒ SƠ NỐI TỪ**\n<@" + userId + ">\n🏆 Thắng: **" + row.wins + "**\n💔 Thua: **" + row.losses + "**\n🔗 Lượt hợp lệ: **" + row.moves + "**\n📊 Xếp hạng: **#" + rank + "**" });
     }
+    if (url.pathname === "/wordchain/suggest" && request.method === "POST") {
+      const payload = await request.json();
+      const userId = String(payload.userId || "");
+      const parsed = parseTwoSyllablePhrase(payload.word);
+      if (!userId) return Response.json({ ok: false, message: "Không xác định được người gửi." }, { status: 400 });
+      if (!parsed.ok) return Response.json({ ok: false, message: "Cụm đề xuất phải gồm đúng 2 tiếng tiếng Việt." });
+      const custom = this.ctx.storage.sql.exec("SELECT phrase FROM word_chain_custom_words WHERE phrase = ?", parsed.phrase).toArray()[0];
+      if (WORD_CHAIN_DICTIONARY.has(parsed.phrase) || custom) return Response.json({ ok: false, message: "Cụm này đã có trong danh sách được chấp nhận." });
+      const pending = this.ctx.storage.sql.exec("SELECT id FROM word_chain_suggestions WHERE phrase = ? AND status = 'pending'", parsed.phrase).toArray()[0];
+      if (pending) return Response.json({ ok: false, message: "Cụm này đã được đề xuất và đang chờ duyệt." });
+      this.ctx.storage.sql.exec("INSERT INTO word_chain_suggestions (phrase, submitted_by, submitted_at, status) VALUES (?, ?, ?, 'pending')", parsed.phrase, userId, Date.now());
+      const row = this.ctx.storage.sql.exec("SELECT last_insert_rowid() AS id").toArray()[0];
+      return Response.json({ ok: true, id: Number(row?.id || 0), message: "📚 Đã gửi đề xuất **" + parsed.phrase + "**. Admin sẽ kiểm tra trước khi đưa vào từ điển." });
+    }
+    if (url.pathname === "/wordchain/review-suggestion" && request.method === "POST") {
+      const payload = await request.json();
+      if (!payload.isAdmin) return Response.json({ ok: false, message: "Chỉ Admin mới được duyệt đề xuất." }, { status: 403 });
+      const id = Number(payload.id);
+      const action = String(payload.action || "approve");
+      if (!Number.isSafeInteger(id) || id < 1 || !["approve", "reject"].includes(action)) return Response.json({ ok: false, message: "Mã đề xuất hoặc thao tác không hợp lệ." }, { status: 400 });
+      const suggestion = this.ctx.storage.sql.exec("SELECT id, phrase, submitted_by FROM word_chain_suggestions WHERE id = ? AND status = 'pending'", id).toArray()[0];
+      if (!suggestion) return Response.json({ ok: false, message: "Không tìm thấy đề xuất đang chờ duyệt." });
+      if (action === "approve") {
+        this.ctx.storage.sql.exec("INSERT OR IGNORE INTO word_chain_custom_words (phrase, added_by, added_at) VALUES (?, ?, ?)", suggestion.phrase, String(payload.userId || "admin"), Date.now());
+      }
+      this.ctx.storage.sql.exec("UPDATE word_chain_suggestions SET status = ? WHERE id = ?", action === "approve" ? "approved" : "rejected", id);
+      return Response.json({ ok: true, message: action === "approve" ? "✅ Đã duyệt **" + suggestion.phrase + "** và thêm vào từ điển." : "Đã từ chối đề xuất **" + suggestion.phrase + "**." });
+    }
     if (url.pathname === "/wordchain/add-word" && request.method === "POST") {
       const payload = await request.json();
       if (!payload.isAdmin) return Response.json({ ok: false, message: "Chỉ Admin mới được bổ sung từ điển." }, { status: 403 });

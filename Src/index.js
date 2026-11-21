@@ -165,6 +165,11 @@ async function handleInteraction(interaction, env, ctx) {
 
     // AI chat command: chat-only in Phase 1, with sequential provider fallback.
     if (command === "ask") {
+      const permissions = BigInt(interaction.member?.permissions || "0");
+      const isAdmin = (permissions & 8n) === 8n;
+      if (!isAdmin) {
+        return json({ type: 4, data: { content: "⛔ POSTLAIN AI đang trong giai đoạn thử nghiệm và hiện chỉ dành cho Admin.", flags: 64 } });
+      }
       const question = interaction.data?.options?.find(option => option.name === "question")?.value;
       if (typeof question !== "string" || !question.trim()) {
         return json({ type: 4, data: { content: "Hãy nhập câu hỏi cho POSTLAIN AI.", flags: 64 } });

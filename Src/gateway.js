@@ -339,9 +339,30 @@ export class DiscordGateway {
     const authorId = String(message.author?.id || "");
     if (!authorId || !this.canSendProactive(message.channel_id, authorId)) return;
     console.log("POSTLAIN support topic detected", { category: support.key, channelId: message.channel_id, messageId: message.id });
-    const reply = [support.response, support.followUp].filter(Boolean).join("\n\n");
+    const suggestedChannel = this.findSuggestedChannel(support.key);
+    const replyParts = [support.response, support.followUp];
+    if (suggestedChannel) replyParts.push("🔎 Relevant room: <#" + suggestedChannel + ">");
+    const reply = replyParts.filter(Boolean).join("\n\n");
     await this.replyWithSupport(message, reply);
     if (support.requiresStaff) await this.notifyStaff(message, support.key);
+  }
+
+  findSuggestedChannel(category) {
+    const hints = {
+      "state-role": ["state-selector", "state-roles", "choose-state", "state-role"],
+      "verification-access": ["verification", "verify", "start-here", "onboarding"],
+      "feedback": ["feedback", "suggestions"],
+      "server-rules": ["rules", "server-rules"],
+      "events-community": ["events", "announcements"],
+      "music-playback": ["music", "listening", "playlists"],
+      "voice-audio": ["voice", "audio", "voice-chat"]
+    }[category] || [];
+    if (!hints.length) return null;
+    for (const [channelId, channelName] of this.channelNames.entries()) {
+      const name = String(channelName || "").toLowerCase();
+      if (hints.some(hint => name.includes(hint))) return channelId;
+    }
+    return null;
   }
 
   canSendProactive(channelId, authorId, now = Date.now()) {

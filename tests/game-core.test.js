@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BAU_CUA_ANIMALS, calculateBauCuaResult, getDailyReward, getVietnamDateKey, getRankLabel } from "../Src/game-core.js";
+import { BAU_CUA_ANIMALS, calculateBauCuaResult, getDailyReward, getVietnamDateKey, getRankLabel, buildWordChainReplyIndex, chooseWordChainReply } from "../Src/game-core.js";
 
 test("daily reward grows with consecutive check-ins and is capped", () => {
   assert.equal(getDailyReward(1), 350);
@@ -31,4 +31,17 @@ test("Bau Cua validates bet and dice input", () => {
 test("rank label is safe for missing rank", () => {
   assert.equal(getRankLabel(1), "#1");
   assert.equal(getRankLabel(0), "Chưa xếp hạng");
+});
+
+test("bot reply index only contains two-syllable phrases and follows the required tail", () => {
+  const index = buildWordChainReplyIndex(["bản đồ", "bản thân", "đồ chơi", "bản đồ giấy", "BẢN   ĐỒ"]);
+  assert.deepEqual(index.get("bản"), ["bản đồ", "bản thân"]);
+  assert.equal(chooseWordChainReply(index, "bản", [], 0), "bản đồ");
+  assert.equal(chooseWordChainReply(index, "bản", [], 0.99), "bản thân");
+});
+
+test("bot never repeats a phrase already used in the current round", () => {
+  const index = buildWordChainReplyIndex(["đồ chơi", "đồ ăn"]);
+  assert.equal(chooseWordChainReply(index, "đồ", ["đồ chơi"], 0), "đồ ăn");
+  assert.equal(chooseWordChainReply(index, "đồ", ["đồ chơi", "đồ ăn"]), null);
 });

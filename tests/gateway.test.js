@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isExcludedChannel, shouldStoreMessage } from "../Src/gateway.js";
+import { isExcludedChannel, shouldStoreMessage, isProactiveCandidate } from "../Src/gateway.js";
 
 const env = {
   AI_EXCLUDED_CHANNEL_IDS: "1571762668916707399,1571762812886192178",
@@ -36,4 +36,16 @@ test("stores only text messages from this guild in allowed channels", () => {
   assert.equal(shouldStoreMessage({ ...base, author: { bot: true } }, "guild-1", allowed), false);
   assert.equal(shouldStoreMessage({ ...base, content: " " }, "guild-1", allowed), false);
   assert.equal(shouldStoreMessage(base, "guild-1", () => true), false);
+});
+
+test("proactive detection selects help requests and conflict signals", () => {
+  assert.equal(isProactiveCandidate("Cho hỏi mọi người, đăng ký role bang ở đâu vậy?"), true);
+  assert.equal(isProactiveCandidate("Có ai biết cách đổi tên Discord không?"), true);
+  assert.equal(isProactiveCandidate("Mọi người bình tĩnh lại, đừng công kích nhau nữa."), true);
+});
+
+test("proactive detection ignores ordinary banter and unrelated questions", () => {
+  assert.equal(isProactiveCandidate("Haha hôm nay vui ghê :)))"), false);
+  assert.equal(isProactiveCandidate("Mày ăn cơm chưa?"), false);
+  assert.equal(isProactiveCandidate("Chào cả nhà!"), false);
 });

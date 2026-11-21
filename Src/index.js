@@ -202,7 +202,7 @@ function helpPanel(category = "games") {
       title: "Cộng đồng",
       description: "Các công cụ dành cho thành viên.",
       fields: [
-        { name: "Thông tin", value: "`/ping` · `/serverinfo` · `/userinfo` · `/avatar`", inline: false },
+        { name: "Thông tin", value: "`/ping` · `/nserver` · `/serverinfo` · `/userinfo` · `/avatar`", inline: false },
         { name: "Tương tác", value: "`/report send` · `/poll create` · `/coinflip` · `/roll` · `/choose`", inline: false },
         { name: "Vai trò & góp ý", value: "`/statepanel publish` · `/feedback send`", inline: false }
       ]

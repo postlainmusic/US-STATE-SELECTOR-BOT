@@ -36,3 +36,25 @@ test("ordinary chat and non-help banter are ignored", () => {
   assert.equal(classifySupportMessage("Chào cả nhà!"), null);
   assert.equal(classifySupportMessage(""), null);
 });
+
+test("recognizes broader English and Vietnamese support categories", () => {
+  assert.equal(classifySupportMessage("I can't hear anyone in voice")?.key, "voice-audio");
+  assert.equal(classifySupportMessage("Where can I find the state selector?")?.key, "state-role");
+  assert.equal(classifySupportMessage("I got scammed by someone")?.key, "safety-report");
+  assert.equal(classifySupportMessage("How do I join the event?")?.key, "events-community");
+  assert.equal(classifySupportMessage("Discord app keeps crashing")?.key, "discord-account");
+  assert.equal(classifySupportMessage("Cho mình hỏi cách verify thành viên")?.key, "verification-access");
+});
+
+test("returns language-aware support guidance and follow-up prompts", () => {
+  const vi = classifySupportMessage("Mình không nghe được trong voice");
+  const en = classifySupportMessage("I cannot hear anything in voice");
+  assert.match(vi.response, /Voice/);
+  assert.match(vi.followUp, /mic|loa|tai nghe/i);
+  assert.match(en.response, /Voice/);
+  assert.match(en.followUp, /microphone|speakers/i);
+});
+
+test("safety reports outrank generic technical keywords", () => {
+  assert.equal(classifySupportMessage("Help, report lỗi lừa đảo")?.key, "safety-report");
+});

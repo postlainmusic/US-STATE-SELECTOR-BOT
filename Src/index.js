@@ -151,6 +151,37 @@ async function editInteractionResponse(env, interaction, content) {
   }
 }
 
+function splitDiscordMessage(value, maxLength = 1900) {
+  let remaining = String(value || "").trim();
+  if (!remaining) return ["POSTLAIN AI chưa tạo được câu trả lời."];
+  const chunks = [];
+  while (remaining.length > maxLength) {
+    let cut = remaining.lastIndexOf("\n", maxLength);
+    if (cut < maxLength * 0.5) cut = remaining.lastIndexOf(" ", maxLength);
+    if (cut < maxLength * 0.5) cut = maxLength;
+    chunks.push(remaining.slice(0, cut).trim());
+    remaining = remaining.slice(cut).trimStart();
+  }
+  if (remaining) chunks.push(remaining);
+  return chunks;
+}
+
+async function sendAIResponse(env, interaction, answer) {
+  const chunks = splitDiscordMessage(answer);
+  await editInteractionResponse(env, interaction, chunks[0]);
+  for (const chunk of chunks.slice(1)) {
+    const response = await fetch(`${API}/webhooks/${env.DISCORD_APPLICATION_ID}/${interaction.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ content: chunk, flags: 64, allowed_mentions: { parse: [] } })
+    });
+    if (!response.ok) {
+      const body = await response.text();
+      console.error("Could not send POSTLAIN AI continuation:", response.status, body);
+      break;
+    }
+  }
+}
 function isManageRoles(interaction) {
   const permissions = BigInt(interaction.member?.permissions || "0");
   return (permissions & 268435456n) === 268435456n;
@@ -229,7 +260,7 @@ async function handleInteraction(interaction, env, ctx) {
         try {
           const knowledge = await loadKnowledge(env);
           const answer = await generateAnswer(env, question, knowledge);
-          await editInteractionResponse(env, interaction, answer.slice(0, 1850));
+          await sendAIResponse(env, interaction, answer);
         } catch (error) {
           console.error("POSTLAIN AI request failed:", error);
           await editInteractionResponse(env, interaction, `⚠️ ${String(error.message || "AI request failed").slice(0, 700)}`);

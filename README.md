@@ -14,7 +14,7 @@ A serverless Discord interaction bot for a one-state-per-member role selector.
 - Member utilities: `/help`, `/ping`, `/serverinfo`, `/userinfo`, `/avatar`, `/report send`.
 - Community fun: `/poll create`, `/coinflip`, `/roll`, `/choose`.
 - Moderation utilities: `/purge`, `/slowmode`, `/lock`, `/unlock` (permission-gated).
-- Community workflows: `/feedback send`, `/noti send`.
+- Community workflows: `/feedback send`, `/noti send` (Admin selects a text or announcement channel as the destination).
 - Voice Assistant: `/join`, `/leave`, `/speak`, `/voice status`, `/voice stop` with 12 languages and male/female voices.
 - POSTLAIN Community Assistant detects support topics in permitted channels, responds in Vietnamese or English, asks one clarifying question, and routes safety reports to the private Staff room. Ordinary chat is ignored. New-member greetings are handled by Carl-bot.
 
@@ -197,7 +197,7 @@ docker compose logs --tail=100 voice
 ```
 
 The Voice Engine exposes only an authenticated control API through the Tunnel. The unauthenticated `/health` endpoint reports service readiness only. Never commit `.env`, bot tokens, tunnel tokens or the shared secret. The existing Worker, Durable Object Gateway and all existing bot commands remain separate and continue to run as before.
-## Important implementation notes
+## Admin notifications\n\nUse `/noti send` in the admin notification room. Select a destination text or announcement channel from Discord's channel picker, then enter the message. The command is Admin-only, validates that the destination belongs to this server, and disables automatic mentions. The bot needs View Channel and Send Messages in the selected destination.\n\n## Important implementation notes
 
 - Role exclusivity is enforced server-side by fetching the member's current roles, removing every configured state role, and adding the selected one.
 - The bot preserves all roles outside the configured 50 state roles.

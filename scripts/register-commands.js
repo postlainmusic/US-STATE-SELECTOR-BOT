@@ -53,6 +53,35 @@ const commands = [
     }]
   },
   {
+    name: "coinflip",
+    description: "Flip a coin",
+    dm_permission: false
+  },
+  {
+    name: "roll",
+    description: "Roll a dice",
+    dm_permission: false,
+    options: [{
+      type: 4,
+      name: "sides",
+      description: "Number of dice sides (2-1000, default 6)",
+      required: false,
+      min_value: 2,
+      max_value: 1000
+    }]
+  },
+  {
+    name: "choose",
+    description: "Choose randomly from a list of options",
+    dm_permission: false,
+    options: [{
+      type: 3,
+      name: "options",
+      description: "Options separated by commas",
+      required: true
+    }]
+  },
+  {
     name: "help",
     description: "Show the POSTLAIN community bot guide",
     dm_permission: false

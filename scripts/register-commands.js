@@ -73,6 +73,35 @@ const commands = [
     ]
   },
   {
+    name: "nme",
+    description: "View your word-chain profile",
+    dm_permission: false,
+    options: [{
+      type: 6,
+      name: "user",
+      description: "View another player's profile",
+      required: false
+    }]
+  },
+  {
+    name: "nrank",
+    description: "Show the top 20 word-chain players",
+    dm_permission: false
+  },
+  {
+    name: "them-tu",
+    description: "Add an exact two-syllable phrase to the curated dictionary (Admin)",
+    default_member_permissions: "8",
+    dm_permission: false,
+    options: [{
+      type: 3,
+      name: "word",
+      description: "Vietnamese phrase with exactly two syllables",
+      required: true,
+      max_length: 80
+    }]
+  },
+  {
     name: "coinflip",
     description: "Flip a coin",
     dm_permission: false

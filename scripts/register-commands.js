@@ -63,6 +63,16 @@ const commands = [
     }]
   },
   {
+    name: "noitu",
+    description: "Play Vietnamese word chain in the dedicated game room",
+    dm_permission: false,
+    options: [
+      { type: 1, name: "start", description: "Start a new Vietnamese word-chain game" },
+      { type: 1, name: "end", description: "End the current game (starter or admin)" },
+      { type: 1, name: "score", description: "Show the word-chain leaderboard" }
+    ]
+  },
+  {
     name: "coinflip",
     description: "Flip a coin",
     dm_permission: false

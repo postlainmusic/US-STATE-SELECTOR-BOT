@@ -1,4 +1,5 @@
 import { VIETNAMESE_WORDS } from "./wordlist.js";
+import { VIETNAMESE_PLAYER_WORDS, VIETNAMESE_CURATED_WORDS } from "./wordlist-player.js";
 import { normalizeVietnamesePhrase, parseTwoSyllablePhrase, validateDictionaryPhrase, validateChainMove } from "./wordchain-core.js";
 const DISCORD_API = "https://discord.com/api/v10";
 const DEFAULT_EXCLUDED_CHANNELS = new Set([
@@ -9,6 +10,7 @@ const PRIVATE_NAME = /(^|[-_ ])(staff|admin|moderation|modlog|mod-logs|ticket|pr
 const MAX_MESSAGE_LENGTH = 1800;
 const WORD_CHAIN_CHANNEL_ID = "1573644570997035100";
 const WORD_CHAIN_TURN_MS = 30_000;
+const WORD_CHAIN_DICTIONARY = new Set([...VIETNAMESE_WORDS, ...VIETNAMESE_PLAYER_WORDS, ...VIETNAMESE_CURATED_WORDS]);
 
 export { classifySupportMessage, isHelpRequest, isProactiveCandidate } from "./support/engine.js";
 import { classifySupportMessage } from "./support/engine.js";
@@ -282,7 +284,7 @@ export class DiscordGateway {
           d: { token: this.env.DISCORD_BOT_TOKEN, session_id: this.sessionId, seq: this.seq }
         });
       } else {
-        // GUILDS + GUILD_MESSAGES + MESSAGE_CONTENT. Only the dedicated word-chain room is processed.
+        // GUILDS + GUILD_MESSAGES + MESSAGE_CONTENT. Application handling is restricted to the dedicated word-chain room.
         this.send({
           op: 2,
           d: {
@@ -443,6 +445,45 @@ export class DiscordGateway {
     return isExcludedChannel(channelId, parentId, channelName, parentName, this.env);
   }
 
+  async deleteWordChainMessage(message, privateReason) {
+    const channelId = String(message?.channel_id || "");
+    const messageId = String(message?.id || "");
+    const userId = String(message?.author?.id || "");
+    if (!channelId || !messageId || !userId) return false;
+    const deleted = await fetch(DISCORD_API + "/channels/" + channelId + "/messages/" + messageId, {
+      method: "DELETE",
+      headers: { Authorization: "Bot " + this.env.DISCORD_BOT_TOKEN }
+    });
+    if (!deleted.ok && deleted.status !== 404) {
+      console.error("POSTLAIN could not delete off-game message:", deleted.status, (await deleted.text()).slice(0, 300));
+      return false;
+    }
+    try {
+      const dm = await fetch(DISCORD_API + "/users/@me/channels", {
+        method: "POST",
+        headers: { Authorization: "Bot " + this.env.DISCORD_BOT_TOKEN, "Content-Type": "application/json" },
+        body: JSON.stringify({ recipient_id: userId })
+      });
+      if (!dm.ok) {
+        console.warn("POSTLAIN could not open private moderation DM:", dm.status);
+        return true;
+      }
+      const dmChannel = await dm.json();
+      const notice = await fetch(DISCORD_API + "/channels/" + dmChannel.id + "/messages", {
+        method: "POST",
+        headers: { Authorization: "Bot " + this.env.DISCORD_BOT_TOKEN, "Content-Type": "application/json" },
+        body: JSON.stringify({
+          content: "🧹 Tin nhắn của bạn trong <#" + channelId + "> đã bị xóa. " + privateReason,
+          allowed_mentions: { parse: [] }
+        })
+      });
+      if (!notice.ok) console.warn("POSTLAIN private moderation notice failed:", notice.status, (await notice.text()).slice(0, 200));
+    } catch (error) {
+      console.warn("POSTLAIN private moderation notice error:", String(error?.message || error));
+    }
+    return true;
+  }
+
   async sendWordChainMessage(channelId, content) {
     const response = await fetch(DISCORD_API + "/channels/" + channelId + "/messages", {
       method: "POST", headers: { Authorization: "Bot " + this.env.DISCORD_BOT_TOKEN, "Content-Type": "application/json" },
@@ -465,17 +506,27 @@ export class DiscordGateway {
       this.ctx.storage.sql.exec("INSERT OR IGNORE INTO word_chain_processed_messages (message_id, processed_at) VALUES (?, ?)", String(message.id), Date.now());
       this.ctx.storage.sql.exec("DELETE FROM word_chain_processed_messages WHERE processed_at < ?", Date.now() - 86400000);
     }
-    const parsed = parseTwoSyllablePhrase(message.content);
-    if (!parsed.ok) {
-      if (parsed.code === "format") await this.sendWordChainMessage(channelId, "📖 Mỗi lượt chỉ nhận cụm **đúng 2 tiếng**. Ví dụ: **con gà**.");
-      return;
-    }
     const userId = String(message.author?.id || "");
     if (!userId) return;
+    const hasNonTextPayload = Number(message.type || 0) !== 0
+      || (message.attachments || []).length > 0
+      || (message.embeds || []).length > 0
+      || (message.sticker_items || []).length > 0
+      || (message.components || []).length > 0
+      || Boolean(message.application_id);
+    if (hasNonTextPayload) {
+      await this.deleteWordChainMessage(message, "Phòng này chỉ dành cho tin nhắn nối từ bằng chữ. Ảnh, sticker, file, embed và nội dung ngoài trò chơi không được phép.");
+      return;
+    }
+    const parsed = parseTwoSyllablePhrase(message.content);
+    if (!parsed.ok) {
+      await this.deleteWordChainMessage(message, "Mỗi lượt phải là đúng **2 tiếng tiếng Việt**, chỉ gồm chữ và một dấu cách. Ví dụ: **con gà**.");
+      return;
+    }
     const custom = this.ctx.storage.sql.exec("SELECT phrase FROM word_chain_custom_words WHERE phrase = ?", parsed.phrase).toArray().length > 0;
-    const checked = validateDictionaryPhrase(parsed.phrase, VIETNAMESE_WORDS, custom ? new Set([parsed.phrase]) : new Set());
+    const checked = validateDictionaryPhrase(parsed.phrase, WORD_CHAIN_DICTIONARY, custom ? new Set([parsed.phrase]) : new Set());
     if (!checked.ok) {
-      await this.sendWordChainMessage(channelId, "📚 **" + parsed.phrase + "** chưa có trong từ điển POSTLAIN. Bot không tự đoán từ. Nếu từ đúng, nhờ Admin bổ sung bằng lệnh /them-tu.");
+      await this.deleteWordChainMessage(message, "Cụm **" + parsed.phrase + "** chưa được xác nhận trong từ điển. Nếu đây là cụm tiếng Việt có thật, Admin có thể bổ sung bằng lệnh **/them-tu**.");
       return;
     }
     const now = Date.now();
@@ -502,7 +553,7 @@ export class DiscordGateway {
     }
     const move = validateChainMove({ parsed, currentTail: previousTail, usedWords: used, lastPlayerId: previousPlayer, userId });
     if (move.code === "same_player") {
-      await this.sendWordChainMessage(channelId, "⏳ Chờ người khác nối lượt nhé.");
+      await this.deleteWordChainMessage(message, "Bạn vừa đi lượt trước. Hãy chờ một người khác nối từ rồi mới gửi lượt tiếp theo.");
       return;
     }
     const loseRound = async reason => {

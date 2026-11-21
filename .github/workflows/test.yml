@@ -20,6 +20,8 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 22.12
+      - name: Check game module syntax
+        run: node --check Src/game-core.js
       - name: Run tests
         run: |
           npm install

@@ -102,6 +102,50 @@ const commands = [
     }]
   },
   {
+    name: "daily",
+    description: "Nhận Gold hằng ngày",
+    dm_permission: false
+  },
+  {
+    name: "ngold",
+    description: "Xem số dư và thống kê Gold",
+    dm_permission: false
+  },
+  {
+    name: "grank",
+    description: "Xem bảng xếp hạng Gold",
+    dm_permission: false
+  },
+  {
+    name: "baucua",
+    description: "Chơi Bầu Cua bằng Gold ảo",
+    dm_permission: false,
+    options: [
+      {
+        type: 3,
+        name: "animal",
+        description: "Chọn một cửa",
+        required: true,
+        choices: [
+          { name: "Nai", value: "nai" },
+          { name: "Bầu", value: "bau" },
+          { name: "Gà", value: "ga" },
+          { name: "Cá", value: "ca" },
+          { name: "Cua", value: "cua" },
+          { name: "Tôm", value: "tom" }
+        ]
+      },
+      {
+        type: 4,
+        name: "amount",
+        description: "Số Gold đặt cược (10-10.000)",
+        required: true,
+        min_value: 10,
+        max_value: 10000
+      }
+    ]
+  },
+  {
     name: "coinflip",
     description: "Flip a coin",
     dm_permission: false

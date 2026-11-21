@@ -192,7 +192,8 @@ function helpPanel(category = "games") {
       fields: [
         { name: "Nối từ", value: "Gửi cụm gồm **2 tiếng**. Tiếng đầu phải khớp với tiếng cuối của lượt trước. Không lặp cụm và không đi hai lượt liên tiếp. Mỗi lượt có 30 giây.", inline: false },
         { name: "Lệnh", value: "`/noitu start` mở ván · `/noitu end` kết thúc · `/noitu score` xem bảng xếp hạng", inline: false },
-        { name: "Hồ sơ", value: "`/nme` xem thành tích · `/nrank` xem top 20 · `/them-tu` bổ sung cụm từ (Admin)", inline: false }
+        { name: "Hồ sơ & từ điển", value: "`/nme` hồ sơ nối từ · `/nrank` top nối từ · `/them-tu` bổ sung cụm từ (Admin)", inline: false },
+        { name: "Gold & mini game", value: "`/daily` nhận Gold · `/ngold` xem số dư · `/grank` bảng xếp hạng · `/baucua` chơi Bầu Cua", inline: false }
       ]
     },
     community: {
@@ -457,6 +458,43 @@ async function handleInteraction(interaction, env, ctx) {
         body: JSON.stringify({ word, userId, isAdmin: true })
       });
       return ephemeral((await result.json()).message || "Không thể bổ sung từ.");
+    }
+
+    if (command === "daily") {
+      const userId = String(interaction.member?.user?.id || interaction.user?.id || "");
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/games/daily", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, interactionId: String(interaction.id || "") })
+      });
+      return ephemeral((await result.json()).message || "Chưa thể điểm danh lúc này.");
+    }
+
+    if (command === "ngold") {
+      const userId = String(interaction.member?.user?.id || interaction.user?.id || "");
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/games/balance?userId=" + encodeURIComponent(userId));
+      return ephemeral((await result.json()).message || "Chưa lấy được số dư.");
+    }
+
+    if (command === "grank") {
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/games/leaderboard");
+      return ephemeral((await result.json()).message || "Chưa có bảng xếp hạng Gold.");
+    }
+
+    if (command === "baucua") {
+      const userId = String(interaction.member?.user?.id || interaction.user?.id || "");
+      const animal = String(optionValue(interaction, "animal") || "");
+      const amount = Number(optionValue(interaction, "amount") || 0);
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/games/baucua", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, animal, amount, interactionId: String(interaction.id || "") })
+      });
+      return ephemeral((await result.json()).message || "Chưa thể chơi Bầu Cua lúc này.");
     }
 
     if (command === "coinflip") {

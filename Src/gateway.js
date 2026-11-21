@@ -146,7 +146,7 @@ export class DiscordGateway {
       const rows = this.ctx.storage.sql.exec("SELECT user_id, wins, losses, moves FROM word_chain_scores ORDER BY wins DESC, moves DESC LIMIT 20").toArray();
       if (!rows.length) return Response.json({ message: "🏆 Bảng xếp hạng chưa có dữ liệu. Vào phòng nối từ và gửi một cụm 2 tiếng hợp lệ để bắt đầu nhé!" });
       const lines = rows.map((row, index) => (index + 1) + ". <@" + row.user_id + "> · **" + row.wins + " thắng** · " + row.losses + " thua · " + row.moves + " lượt");
-      return Response.json({ message: "🏆 **POSTLAIN NỐI TỪ · TOP 20**\n" + lines.join("\n") });
+      return Response.json({ message: "🏆 **BẢNG XẾP HẠNG · TOP 20**\n" + lines.join("\n") });
     }
     if (url.pathname === "/wordchain/profile" && request.method === "GET") {
       const userId = String(url.searchParams.get("userId") || "");

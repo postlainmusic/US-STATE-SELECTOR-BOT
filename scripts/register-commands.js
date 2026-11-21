@@ -243,9 +243,9 @@ const commands = [
       {
         type: 4,
         name: "amount",
-        description: "Gold cược (0-10.000, mặc định 0)",
-        required: false,
-        min_value: 0,
+        description: "Gold cược (10-10.000)",
+        required: true,
+        min_value: 10,
         max_value: 10000
       }
     ]

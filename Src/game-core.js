@@ -107,3 +107,19 @@ export function resolveXuxi({ choice, botChoice, amount = 0 }) {
   const net = outcome === "win" ? bet : outcome === "loss" ? -bet : 0;
   return { ok: true, player, bot, amount: bet, outcome, net };
 }
+
+
+export const GRIND_GAMES = Object.freeze({
+  mining: { label: "Đào Mỏ", cooldownMs: 30 * 60 * 1000, dailyCap: 12000, minReward: 600, maxReward: 1400, bonusChance: 0.08, bonusMin: 1000, bonusMax: 1800, activity: "đào được quặng" },
+  fishing: { label: "Câu Cá", cooldownMs: 20 * 60 * 1000, dailyCap: 10000, minReward: 400, maxReward: 1000, bonusChance: 0.12, bonusMin: 1000, bonusMax: 1600, activity: "bắt được cá" },
+  farming: { label: "Làm Vườn", cooldownMs: 4 * 60 * 60 * 1000, dailyCap: 12000, minReward: 2500, maxReward: 4000, bonusChance: 0.05, bonusMin: 1000, bonusMax: 2000, activity: "thu hoạch nông sản" },
+  expedition: { label: "Thám Hiểm", cooldownMs: 2 * 60 * 60 * 1000, dailyCap: 12000, minReward: 1000, maxReward: 2200, bonusChance: 0.10, bonusMin: 1500, bonusMax: 2800, activity: "tìm thấy chiến lợi phẩm" }
+});
+export function calculateGrindReward(game, random = Math.random) {
+  const config = GRIND_GAMES[String(game)];
+  if (!config) return null;
+  const safe = () => Math.max(0, Math.min(0.999999999, Number(random()) || 0));
+  const base = config.minReward + Math.floor(safe() * (config.maxReward - config.minReward + 1));
+  const bonus = safe() < config.bonusChance ? config.bonusMin + Math.floor(safe() * (config.bonusMax - config.bonusMin + 1)) : 0;
+  return { base, bonus, total: base + bonus, config };
+}

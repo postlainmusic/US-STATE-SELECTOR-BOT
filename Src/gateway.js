@@ -2,7 +2,7 @@ import { VIETNAMESE_WORDS } from "./wordlist.js";
 import { VIETNAMESE_PLAYER_WORDS, VIETNAMESE_CURATED_WORDS } from "./wordlist-player.js";
 import { VIETNAMESE_COMMUNITY_WORDS } from "./wordlist-community.js";
 import { normalizeVietnamesePhrase, parseTwoSyllablePhrase, validateDictionaryPhrase, validateChainMove } from "./wordchain-core.js";
-import { BAU_CUA_ANIMALS, calculateBauCuaResult, getDailyReward, getVietnamDateKey, buildWordChainReplyIndex, chooseWordChainReply, XUXI_CHOICES, resolveXuxi, rollBauCuaDice, chooseXuxiBotChoice } from "./game-core.js";
+import { BAU_CUA_ANIMALS, calculateBauCuaResult, getDailyReward, getVietnamDateKey, buildWordChainReplyIndex, chooseWordChainReply, XUXI_CHOICES, resolveXuxi, rollBauCuaDice, chooseXuxiBotChoice, GRIND_GAMES, calculateGrindReward } from "./game-core.js";
 const DISCORD_API = "https://discord.com/api/v10";
 const DEFAULT_EXCLUDED_CHANNELS = new Set([
   "1571762668916707399", // Staff chat
@@ -140,6 +140,13 @@ export class DiscordGateway {
         created_at INTEGER NOT NULL
       )
     `);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS game_grind_state (
+        user_id TEXT NOT NULL, game TEXT NOT NULL, last_claim INTEGER NOT NULL,
+        day_key TEXT NOT NULL, earned_today INTEGER NOT NULL DEFAULT 0,
+        PRIMARY KEY (user_id, game)
+      )
+    `);
 
   }
 
@@ -172,6 +179,32 @@ export class DiscordGateway {
       });
     }
 
+    if (url.pathname === "/games/grind" && request.method === "POST") {
+      const payload = await request.json();
+      const userId = String(payload.userId || "");
+      const interactionId = String(payload.interactionId || "");
+      const game = String(payload.game || "");
+      const config = GRIND_GAMES[game];
+      if (!userId || !interactionId || !config) return Response.json({ ok: false, message: "Trò chơi hoặc người chơi không hợp lệ." }, { status: 400 });
+      if (this.ctx.storage.sql.exec("SELECT interaction_id FROM game_action_receipts WHERE interaction_id = ?", interactionId).toArray()[0]) return Response.json({ ok: false, message: "Lượt chơi này đã được xử lý rồi." });
+      const now = Date.now(), today = getVietnamDateKey(now);
+      const state = this.ctx.storage.sql.exec("SELECT last_claim, day_key, earned_today FROM game_grind_state WHERE user_id = ? AND game = ?", userId, game).toArray()[0];
+      const earnedToday = state?.day_key === today ? Number(state.earned_today || 0) : 0;
+      const remaining = Math.max(0, config.dailyCap - earnedToday);
+      if (!remaining) return Response.json({ ok: false, message: "Bạn đã đạt giới hạn Gold hôm nay ở trò này. Mai quay lại nhé!" });
+      const waitMs = Math.max(0, config.cooldownMs - (now - Number(state?.last_claim || 0)));
+      if (waitMs) return Response.json({ ok: false, message: "⏳ " + config.label + " đang hồi năng lượng. Quay lại sau **" + Math.ceil(waitMs / 60000) + " phút** nhé." });
+      const roll = calculateGrindReward(game, () => crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000);
+      const reward = Math.min(remaining, roll.total), nowEarned = earnedToday + reward;
+      this.ctx.storage.sql.exec("INSERT INTO game_action_receipts (interaction_id, user_id, action, created_at) VALUES (?, ?, ?, ?)", interactionId, userId, "grind:" + game, now);
+      this.ctx.storage.sql.exec("INSERT INTO game_grind_state (user_id, game, last_claim, day_key, earned_today) VALUES (?, ?, ?, ?, ?) ON CONFLICT(user_id, game) DO UPDATE SET last_claim = excluded.last_claim, day_key = excluded.day_key, earned_today = excluded.earned_today", userId, game, now, today, nowEarned);
+      this.ctx.storage.sql.exec("INSERT INTO game_wallets (user_id, gold, updated_at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET gold = gold + excluded.gold, updated_at = excluded.updated_at", userId, reward, now);
+      this.ctx.storage.sql.exec("INSERT INTO game_transactions (id, user_id, amount, reason, created_at) VALUES (?, ?, ?, ?, ?)", "grind:" + interactionId, userId, reward, "grind:" + game, now);
+      const balance = Number(this.ctx.storage.sql.exec("SELECT gold FROM game_wallets WHERE user_id = ?", userId).toArray()[0]?.gold || 0);
+      const bonusText = roll.bonus > 0 ? "\n✨ Thưởng hiếm: **+" + Math.min(roll.bonus, reward).toLocaleString("vi-VN") + " Gold**" : "";
+      return Response.json({ ok: true, game, reward, balance, earnedToday: nowEarned, dailyCap: config.dailyCap,
+        message: "🎮 **" + config.label.toUpperCase() + "**\nBạn " + config.activity + ".\n💰 Nhận **+" + reward.toLocaleString("vi-VN") + " Gold**" + bonusText + "\n📦 Hôm nay: **" + nowEarned.toLocaleString("vi-VN") + "/" + config.dailyCap.toLocaleString("vi-VN") + " Gold**\n⏱️ Hồi lượt: **" + Math.ceil(config.cooldownMs / 60000) + " phút**\n💳 Số dư: **" + balance.toLocaleString("vi-VN") + " Gold**" });
+    }
     if (url.pathname === "/games/daily" && request.method === "POST") {
       const payload = await request.json();
       const userId = String(payload.userId || "");
@@ -215,25 +248,6 @@ export class DiscordGateway {
       this.ctx.storage.sql.exec("INSERT INTO game_transactions (id, user_id, amount, reason, created_at) VALUES (?, ?, ?, 'admin-grant', ?)", "admin:" + interactionId, userId, amount, now);
       const balance = Number(this.ctx.storage.sql.exec("SELECT gold FROM game_wallets WHERE user_id = ?", userId).toArray()[0]?.gold || 0);
       return Response.json({ ok: true, userId, amount, balance });
-    }
-    if (url.pathname === "/games/lucky" && request.method === "POST") {
-      const payload = await request.json();
-      const userId = String(payload.userId || "");
-      const interactionId = String(payload.interactionId || "");
-      const amount = Number(payload.amount);
-      if (!userId || !interactionId) return Response.json({ ok: false, message: "Không xác định được lượt chơi." }, { status: 400 });
-      if (this.ctx.storage.sql.exec("SELECT interaction_id FROM game_action_receipts WHERE interaction_id = ?", interactionId).toArray()[0]) return Response.json({ ok: false, message: "Lượt chơi này đã được xử lý rồi." });
-      if (!Number.isSafeInteger(amount) || amount < 10 || amount > 10000) return Response.json({ ok: false, message: "Mức cược phải từ 10 đến 10.000 Gold." });
-      const wallet = this.ctx.storage.sql.exec("SELECT gold FROM game_wallets WHERE user_id = ?", userId).toArray()[0];
-      if (Number(wallet?.gold || 0) < amount) return Response.json({ ok: false, message: "Bạn không đủ Gold. Dùng `/daily` để nhận 100.000 Gold." });
-      const won = crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000 < 0.48;
-      const net = won ? amount : -amount;
-      const now = Date.now();
-      this.ctx.storage.sql.exec("INSERT INTO game_action_receipts (interaction_id, user_id, action, created_at) VALUES (?, ?, 'lucky', ?)", interactionId, userId, now);
-      this.ctx.storage.sql.exec("INSERT INTO game_wallets (user_id, gold, games, wins, losses, updated_at) VALUES (?, ?, 1, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET gold = gold + ?, games = games + 1, wins = wins + ?, losses = losses + ?, updated_at = ?", userId, net, won ? 1 : 0, won ? 0 : 1, now, net, won ? 1 : 0, won ? 0 : 1, now);
-      this.ctx.storage.sql.exec("INSERT INTO game_transactions (id, user_id, amount, reason, created_at) VALUES (?, ?, ?, 'lucky', ?)", interactionId, userId, net, now);
-      const balance = Number(this.ctx.storage.sql.exec("SELECT gold FROM game_wallets WHERE user_id = ?", userId).toArray()[0]?.gold || 0);
-      return Response.json({ ok: true, won, net, balance, message: (won ? "🍀 **TRÚNG LỚN!** Bạn lời " : "🌧️ **Chưa may mắn!** Bạn mất ") + amount.toLocaleString("vi-VN") + " Gold.\n💰 Số dư: **" + balance.toLocaleString("vi-VN") + " Gold**\n🎯 Tỷ lệ thắng: **48%**" });
     }
     if (url.pathname === "/games/baucua" && request.method === "POST") {
       const payload = await request.json();
@@ -419,8 +433,8 @@ export class DiscordGateway {
       return Response.json({
         ok: true,
         count: rows.length,
-        message: "📚 **ĐỀ XUẤT TỪ ĐANG CHỜ DUYỆT**\\n" + lines.join("\\n") +
-          "\\n\\nDuyệt: `/duyet-tu id:` · Từ chối: `/tu-choi-tu id:`"
+        message: "📚 **ĐỀ XUẤT TỪ ĐANG CHỜ DUYỆT**\n" + lines.join("\n") +
+          "\n\nDuyệt: `/duyet-tu id:` · Từ chối: `/tu-choi-tu id:`"
       });
     }
     if (url.pathname === "/wordchain/review-suggestion" && request.method === "POST") {

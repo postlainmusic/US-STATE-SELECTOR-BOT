@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BAU_CUA_ANIMALS, calculateBauCuaResult, getDailyReward, getVietnamDateKey, getRankLabel, buildWordChainReplyIndex, chooseWordChainReply, resolveXuxi, rollBauCuaDice, chooseXuxiBotChoice } from "../Src/game-core.js";
+import { BAU_CUA_ANIMALS, calculateBauCuaResult, getDailyReward, getVietnamDateKey, getRankLabel, buildWordChainReplyIndex, chooseWordChainReply, resolveXuxi, rollBauCuaDice, chooseXuxiBotChoice, GRIND_GAMES, calculateGrindReward } from "../Src/game-core.js";
 
 test("daily reward is a fixed 100,000 Gold regardless of streak", () => {
   assert.equal(getDailyReward(1), 100000);
@@ -71,4 +71,23 @@ test("Xuxi bot choice is weighted so the player wins 48 percent and loses 52 per
     assert.equal(resolveXuxi({ choice, botChoice: winBot.value, amount: 100 }).outcome, "win");
     assert.equal(resolveXuxi({ choice, botChoice: loseBot.value, amount: 100 }).outcome, "loss");
   }
+});
+
+
+test("four grind games have cooldowns, daily caps and non-betting rewards", () => {
+  assert.deepEqual(Object.keys(GRIND_GAMES), ["mining", "fishing", "farming", "expedition"]);
+  assert.equal(GRIND_GAMES.mining.dailyCap, 12000);
+  assert.equal(GRIND_GAMES.fishing.cooldownMs, 20 * 60 * 1000);
+  assert.equal(GRIND_GAMES.farming.cooldownMs, 4 * 60 * 60 * 1000);
+  assert.equal(GRIND_GAMES.expedition.dailyCap, 12000);
+  assert.equal(calculateGrindReward("mining", () => 0).total, 1600);
+  assert.equal(calculateGrindReward("unknown"), null);
+});
+
+test("grind rare rewards stay within configured reward ranges", () => {
+  const reward = calculateGrindReward("fishing", () => 0);
+  assert.equal(reward.base, 400);
+  assert.equal(reward.bonus, 1000);
+  assert.equal(reward.total, 1400);
+  assert.ok(reward.total <= GRIND_GAMES.fishing.maxReward + GRIND_GAMES.fishing.bonusMax);
 });

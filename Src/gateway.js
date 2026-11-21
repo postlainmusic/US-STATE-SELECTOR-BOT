@@ -411,9 +411,10 @@ export class DiscordGateway {
     let welcomeChannelId = String(this.env.WELCOME_CHANNEL_ID || "").trim();
     if (!welcomeChannelId) {
       const candidates = [...this.channelNames.entries()];
-      const match = candidates.find(([, name]) =>
-        /^(welcome|welcome-room|welcome-here|new-members|introductions|chao-mung|chao-don|gioi-thieu|phong-chao-mung)$/i.test(String(name || "").replace(/[^a-z0-9-]/gi, ""))
-      );
+      const match = candidates.find(([, name]) => {
+        const normalized = String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9-]/g, "");
+        return /^(welcome|welcome-room|welcome-here|new-members|introductions|chao-mung|chao-don|gioi-thieu|phong-chao-mung)$/.test(normalized);
+      });
       welcomeChannelId = match?.[0] || "";
     }
 

@@ -280,34 +280,57 @@ async function handleInteraction(interaction, env, ctx) {
       return deferred;
     }
 
-    // Admin notification relay: slash command is accepted only in the admin room.
+    // Admin notification relay: admins choose the destination text channel.
     if (command === "noti" && subcommand === "send") {
       const ADMIN_CHANNEL_ID = "1573302128351645706";
-      const PUBLIC_CHANNEL_ID = "1571711139220426794";
       const sourceChannelId = interaction.channel_id;
       const permissions = BigInt(interaction.member?.permissions || "0");
       const isAdmin = (permissions & 8n) === 8n;
       if (sourceChannelId !== ADMIN_CHANNEL_ID || !isAdmin) {
         return json({ type: 4, data: { content: "⛔ Lệnh này chỉ dành cho Admin trong phòng thông báo quản trị. / Admin-only command in the admin notification room.", flags: 64 } });
       }
-      const message = interaction.data?.options?.[0]?.options?.find(option => option.name === "message")?.value;
+
+      const destinationId = optionValue(interaction, "channel");
+      const message = optionValue(interaction, "message");
+      if (!destinationId || typeof destinationId !== "string") {
+        return ephemeral("⚠️ Hãy chọn phòng nhận thông báo trước khi gửi.");
+      }
       if (typeof message !== "string" || !message.trim()) {
-        return json({ type: 4, data: { content: "Vui lòng nhập nội dung thông báo. / Please provide a notification message.", flags: 64 } });
+        return ephemeral("Vui lòng nhập nội dung thông báo.");
       }
-      if (message.length > 2000) {
-        return json({ type: 4, data: { content: "Thông báo vượt quá giới hạn 2.000 ký tự. / Message exceeds the 2,000-character limit.", flags: 64 } });
+      if (message.trim().length > 2000) {
+        return ephemeral("Thông báo vượt quá giới hạn 2.000 ký tự.");
       }
+
       const deferred = json({ type: 5, data: { flags: 64 } });
       const work = (async () => {
         try {
-          await discord(`/channels/${PUBLIC_CHANNEL_ID}/messages`, env, {
+          const destination = await discord(`/channels/${destinationId}`, env);
+          if (String(destination.guild_id || "") !== String(interaction.guild_id || "")) {
+            await editInteractionResponse(env, interaction, "❌ Phòng nhận không thuộc server này. Hãy chọn một phòng trong POSTLAIN Discord.");
+            return;
+          }
+          if (![0, 5].includes(Number(destination.type))) {
+            await editInteractionResponse(env, interaction, "❌ Chỉ hỗ trợ phòng văn bản hoặc phòng thông báo. Không thể gửi vào voice, forum hay category.");
+            return;
+          }
+
+          await discord(`/channels/${destinationId}/messages`, env, {
             method: "POST",
-            body: JSON.stringify({ content: message, allowed_mentions: { parse: [] } })
+            body: JSON.stringify({
+              content: message.trim(),
+              allowed_mentions: { parse: [], users: [], roles: [], replied_user: false }
+            })
           });
-          await editInteractionResponse(env, interaction, "✅ Đã gửi thông báo đến phòng công khai. / Notification sent successfully.");
+          const channelLabel = destination.name ? `#${destination.name}` : `<#${destinationId}>`;
+          await editInteractionResponse(env, interaction, `✅ Đã gửi thông báo thành công đến **${channelLabel}**.\n\n<#{destinationId}>`);
         } catch (error) {
           console.error("Notification relay failed:", error);
-          await editInteractionResponse(env, interaction, "❌ Không gửi được thông báo. Kiểm tra quyền Send Messages của bot ở phòng nhận. / Could not send notification. Check the bot's Send Messages permission in the destination channel.");
+          const detail = String(error?.message || error);
+          const hint = /50013|Missing Permissions|403/i.test(detail)
+            ? "Bot chưa có quyền View Channel và Send Messages tại phòng nhận."
+            : "Kiểm tra lại phòng nhận và quyền của bot, sau đó thử lại.";
+          await editInteractionResponse(env, interaction, `❌ Không gửi được thông báo. ${hint}`);
         }
       })();
       ctx.waitUntil(work);

@@ -2,9 +2,8 @@ export function normalizeVietnamesePhrase(value) {
   return String(value || "")
     .normalize("NFC")
     .toLocaleLowerCase("vi-VN")
-    .replace(/^[^\p{L}]+|[^\p{L}]+$/gu, "")
-    .replace(/\s+/gu, " ")
-    .trim();
+    .trim()
+    .replace(/\s+/gu, " ");
 }
 
 export function parseTwoSyllablePhrase(value) {

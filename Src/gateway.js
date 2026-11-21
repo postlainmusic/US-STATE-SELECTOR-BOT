@@ -1,5 +1,3 @@
-import { generateAnswer } from "./ai/engine.js";
-
 const DISCORD_API = "https://discord.com/api/v10";
 const DEFAULT_EXCLUDED_CHANNELS = new Set([
   "1571762668916707399", // Staff chat
@@ -8,20 +6,28 @@ const DEFAULT_EXCLUDED_CHANNELS = new Set([
 const PRIVATE_NAME = /(^|[-_ ])(staff|admin|moderation|modlog|mod-logs|ticket|private|internal)([-_ ]|$)/i;
 const MAX_MESSAGE_LENGTH = 1800;
 const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
-const PROACTIVE_SILENCE = "[[SILENT]]";
 
-export function isHelpRequest(content) {
-  const text = String(content || "").trim();
-  return text.length >= 8 && /(cho hỏi|cho minh hỏi|cho mình hỏi|có ai biết|ai biết không|mọi người ơi.*\\?|giúp (mình|tôi|tao|với)|help me|need help|anyone know|can someone|does anyone know|how (do|can|to)|where (can|is|do)|làm sao|ở đâu|thế nào|như nào|vì sao|tại sao|bao nhiêu|khi nào|cách nào|cách làm)/i.test(text);
+function normalizeSupportText(value) {
+  return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
-
-export function isProactiveCandidate(content) {
-  const text = String(content || "").trim();
-  if (text.length < 8 || text.length > MAX_MESSAGE_LENGTH) return false;
-  const helpSignal = isHelpRequest(text);
-  const conflictSignal = /(cãi nhau|tranh cãi|công kích nhau|chửi nhau|đang căng|căng thẳng|bình tĩnh lại|đe dọa|bắt nạt|harass|bully|threaten)/i.test(text);
-  return helpSignal || conflictSignal;
+export function classifySupportMessage(content) {
+  const raw = String(content || "").trim();
+  if (raw.length < 6 || raw.length > MAX_MESSAGE_LENGTH) return null;
+  const text = normalizeSupportText(raw);
+  const asks = /\b(cho minh hoi|cho hoi|cho tui hoi|giup minh|giup voi|can giup|help|need help|anyone know|co ai biet|ai biet khong|hoi chut|hoi xiu|loi|error|bug|khong duoc|khong hoat dong|khong thay|o dau|lam sao|the nao|cach nao|tai sao|vi sao|sao lai|huong dan|support|ho tro)\b/.test(text);
+  if (!asks) return null;
+  if (/(bang|state|tieu bang|chon bang|doi bang|role bang|state role)/.test(text)) return { key: "state-role", response: "🗺️ **Vụ chọn bang / State Role**\nMở phòng có bảng chọn bang của server, bấm danh sách và chọn bang mày đang sống. Bot sẽ tự cập nhật role, bang cũ được thay thế. Nếu bảng không hiện, chọn không được hoặc role không đổi, gửi ảnh màn hình kèm tên bang để staff kiểm tra nhé." };
+  if (/(verify|verification|xac minh|xac thuc|duyet thanh vien|cap role|nhan role|role member|vai tro|quyen truy cap|khong vao duoc kenh)/.test(text)) return { key: "verification-role", response: "🔐 **Vấn đề xác minh / nhận role**\nKiểm tra phòng hướng dẫn xác minh và làm đúng bước được ghim ở đó. Nếu đã xác minh mà vẫn không thấy phòng hoặc chưa có role, gửi ảnh màn hình và nói rõ bước bị kẹt để staff kiểm tra quyền nhé. Đừng gửi mật khẩu hay mã đăng nhập." };
+  if (/(discord|tai khoan|dang nhap|mat khau|ma xac minh|nitro|ung dung|app|dien thoai|may tinh)/.test(text)) return { key: "discord-account", response: "🛠️ **Sự cố Discord / tài khoản**\nThử cập nhật Discord, đóng mở lại ứng dụng và kiểm tra kết nối. Nếu vẫn lỗi, gửi ảnh hoặc nguyên văn thông báo lỗi, cho biết đang dùng Android, iPhone hay máy tính. Nhớ che email, số điện thoại và thông tin riêng tư." };
+  if (/(nhac|music|audio|voice|giong|mic|micro|tai nghe|loa|phat nhac|nghe nhac)/.test(text)) return { key: "music-audio", response: "🎧 **Hỗ trợ âm thanh / âm nhạc**\nKiểm tra đúng voice channel, âm lượng Discord và quyền truy cập micro/âm thanh của ứng dụng. Nếu vẫn có vấn đề, nói rõ là không nghe được nhạc, không vào voice, mic không hoạt động hay bị rè, kèm thiết bị đang dùng." };
+  if (/(bao cao|report|vi pham|spam|quay roi|bat nat|cong kich|lua dao|scam|donate lua|noi dung doc hai|mod|moderator|admin)/.test(text)) return { key: "safety-report", response: "🛡️ **Báo cáo sự cố / hành vi vi phạm**\nĐừng đôi co hoặc công khai thông tin riêng tư. Gửi bằng chứng, link tin nhắn và mô tả ngắn cho Moderator/Staff qua kênh hỗ trợ phù hợp. Nếu có nguy cơ mất an toàn, báo staff ngay." };
+  if (/(gop y|de xuat|y tuong|phan hoi|feedback|kien nghi)/.test(text)) return { key: "feedback", response: "📮 **Gửi góp ý cho POSTLAIN**\nVào phòng góp ý và dùng /feedback send để gửi nội dung. Góp ý sẽ được chuyển đến hộp thư quản trị. Cứ nói rõ vấn đề, đề xuất và lý do, càng cụ thể càng dễ xử lý." };
+  if (/(luat|noi quy|quy dinh|rules|bi cam|mute|ban|kick)/.test(text)) return { key: "server-rules", response: "📜 **Nội quy server**\nTìm phòng nội quy / rules và đọc các thông báo được ghim trước nhé. Nếu có điều khoản chưa rõ hoặc nghĩ rằng mình bị xử lý nhầm, hỏi Moderator/Staff và gửi kèm ngữ cảnh liên quan." };
+  if (/(loi|error|bug|khong duoc|khong hoat dong|khong thay|crash|treo|ket noi|connection|timeout)/.test(text)) return { key: "technical-issue", response: "🧰 **Tiếp nhận lỗi kỹ thuật**\nĐể khoanh vùng nhanh, gửi giúp: (1) mày đang thao tác gì, (2) kết quả mong muốn, (3) chuyện gì thực sự xảy ra, (4) ảnh hoặc nguyên văn lỗi, (5) thiết bị đang dùng. Đừng gửi mật khẩu, token hay mã xác thực." };
+  return { key: "general-help", response: "🙋 **POSTLAIN Support đã nhận tín hiệu!**\nMày đang cần hỗ trợ gì? Viết rõ vấn đề, đang ở phòng nào và điều gì chưa hoạt động. Nếu có lỗi, gửi ảnh hoặc nguyên văn thông báo. Staff sẽ vào xử lý những việc cần quyền quản trị." };
 }
+export function isHelpRequest(content) { return Boolean(classifySupportMessage(content)); }
+export function isProactiveCandidate(content) { return Boolean(classifySupportMessage(content)); }
 
 function parseIds(value) {
   return String(value || "").split(",").map(x => x.trim()).filter(Boolean);
@@ -79,18 +85,7 @@ export class DiscordGateway {
     this.channelNames = new Map();
     this.channelParents = new Map();
     this.lastMentionReplyAt = new Map();
-    this.ctx.storage.sql.exec(`
-      CREATE TABLE IF NOT EXISTS community_messages (
-        id TEXT PRIMARY KEY,
-        channel_id TEXT NOT NULL,
-        channel_name TEXT NOT NULL,
-        author_name TEXT NOT NULL,
-        content TEXT NOT NULL,
-        created_at INTEGER NOT NULL
-      )
-    `);
-    this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_community_messages_time ON community_messages(created_at)");
-    this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_community_messages_channel ON community_messages(channel_id, created_at)");
+    this.ctx.storage.sql.exec("DROP TABLE IF EXISTS community_messages");
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS proactive_replies (
         id TEXT PRIMARY KEY,
@@ -113,14 +108,12 @@ export class DiscordGateway {
       });
     }
     if (url.pathname === "/status") {
-      const count = this.ctx.storage.sql.exec("SELECT COUNT(*) AS count FROM community_messages").toArray()[0]?.count || 0;
       const socketState = this.ws?.readyState;
       const state = socketState === WebSocket.OPEN ? "connected" : socketState === WebSocket.CONNECTING ? "connecting" : "disconnected";
       return Response.json({
         ok: true,
         state,
         socketReadyState: socketState ?? null,
-        storedMessages: count,
         guildId: this.env.DISCORD_GUILD_ID,
         lastError: this.lastError,
         lastGatewayPacketAt: this.lastGatewayPacketAt,
@@ -129,10 +122,6 @@ export class DiscordGateway {
         lastCloseReason: this.lastCloseReason,
         hasBotToken: Boolean(this.env.DISCORD_BOT_TOKEN)
       });
-    }
-    if (url.pathname === "/context") {
-      const channelId = url.searchParams.get("channel_id") || "";
-      return Response.json({ context: this.getContext(channelId) });
     }
     return new Response("Not found", { status: 404 });
   }
@@ -281,8 +270,6 @@ export class DiscordGateway {
       if (packet.d.parent_id) this.channelParents.set(packet.d.id, packet.d.parent_id);
     } else if (packet.t === "MESSAGE_CREATE") {
       await this.handleMessage(packet.d);
-    } else if (packet.t === "GUILD_MEMBER_ADD") {
-      await this.sendWelcome(packet.d);
     }
   }
 
@@ -392,300 +379,45 @@ export class DiscordGateway {
     const guildId = String(this.env.DISCORD_GUILD_ID || "");
     if (!message || String(message.guild_id || "") !== guildId) return;
     if (!message.channel_id || message.author?.bot || message.webhook_id) return;
-
     const content = String(message.content || "").trim().slice(0, MAX_MESSAGE_LENGTH);
-    if (!content) return;
-    if (await this.isExcluded(message.channel_id, message)) return;
-
-    const botId = String(this.env.DISCORD_BOT_USER_ID || "");
-    const mentionInPayload = Array.isArray(message.mentions) &&
-      message.mentions.some(user => String(user.id) === botId);
-    const mentionInContent = botId
-      ? (content.includes(`<@${botId}>`) || content.includes(`<@!${botId}>`))
-      : false;
-    const mentioned = Boolean(botId && (mentionInPayload || mentionInContent));
-
-    const channelName = this.channelNames.get(message.channel_id) || "community";
-    const authorName = message.member?.nick || message.author?.global_name || message.author?.username || "Member";
-    const createdAt = Date.parse(message.timestamp || new Date().toISOString());
-    this.ctx.storage.sql.exec(
-      "INSERT OR IGNORE INTO community_messages (id, channel_id, channel_name, author_name, content, created_at) VALUES (?, ?, ?, ?, ?, ?)",
-      message.id, message.channel_id, channelName, authorName.slice(0, 80), content, createdAt
-    );
-    this.ctx.storage.sql.exec("DELETE FROM community_messages WHERE created_at < ?", Date.now() - RETENTION_MS);
-    this.ctx.storage.sql.exec("DELETE FROM community_messages WHERE id IN (SELECT id FROM community_messages ORDER BY created_at DESC LIMIT -1 OFFSET 1500)");
-
-    if (mentioned) {
-      console.log("POSTLAIN AI mention detected", {
-        channelId: message.channel_id,
-        authorId: message.author?.id,
-        botId,
-        mentionInPayload,
-        mentionInContent
-      });
-      await this.replyToMention(message, content);
-    } else if (isProactiveCandidate(content)) {
-      console.log("POSTLAIN AI proactive candidate detected", {
-        channelId: message.channel_id,
-        messageId: message.id,
-        authorId: message.author?.id,
-        helpRequest: isHelpRequest(content)
-      });
-      await this.replyProactively(message, content);
-    }
+    if (!content || await this.isExcluded(message.channel_id, message)) return;
+    const support = classifySupportMessage(content);
+    if (!support) return;
+    const authorId = String(message.author?.id || "");
+    if (!authorId || !this.canSendProactive(message.channel_id, authorId)) return;
+    console.log("POSTLAIN support keyword detected", { category: support.key, channelId: message.channel_id, messageId: message.id });
+    await this.replyWithSupport(message, support.response);
   }
 
   canSendProactive(channelId, authorId, now = Date.now()) {
-    const globalCount = this.ctx.storage.sql.exec(
-      "SELECT COUNT(*) AS count FROM proactive_replies WHERE created_at > ?",
-      now - 60 * 60 * 1000
-    ).toArray()[0]?.count || 0;
-    if (globalCount >= 5) return false;
-    const channelRecent = this.ctx.storage.sql.exec(
-      "SELECT COUNT(*) AS count FROM proactive_replies WHERE channel_id = ? AND created_at > ?",
-      channelId, now - 90 * 1000
-    ).toArray()[0]?.count || 0;
+    const globalCount = this.ctx.storage.sql.exec("SELECT COUNT(*) AS count FROM proactive_replies WHERE created_at > ?", now - 60 * 60 * 1000).toArray()[0]?.count || 0;
+    if (globalCount >= 8) return false;
+    const channelRecent = this.ctx.storage.sql.exec("SELECT COUNT(*) AS count FROM proactive_replies WHERE channel_id = ? AND created_at > ?", channelId, now - 60 * 1000).toArray()[0]?.count || 0;
     if (channelRecent > 0) return false;
-    const authorRecent = this.ctx.storage.sql.exec(
-      "SELECT COUNT(*) AS count FROM proactive_replies WHERE author_id = ? AND created_at > ?",
-      authorId, now - 3 * 60 * 1000
-    ).toArray()[0]?.count || 0;
+    const authorRecent = this.ctx.storage.sql.exec("SELECT COUNT(*) AS count FROM proactive_replies WHERE author_id = ? AND created_at > ?", authorId, now - 2 * 60 * 1000).toArray()[0]?.count || 0;
     return authorRecent === 0;
   }
 
-  async replyProactively(message, rawContent) {
+  async replyWithSupport(message, responseText) {
     const authorId = String(message.author?.id || "");
-    if (!authorId || !this.canSendProactive(message.channel_id, authorId)) return;
-
-    try {
-      const knowledge = await this.loadKnowledge();
-      const context = this.getContext(message.channel_id);
-      const prompt = [
-        "AUTONOMOUS COMMUNITY CHECK:",
-        "A member posted the message below without mentioning you.",
-        "Decide whether this is a genuine unanswered request for help/information, or a clear moment where one brief, calm de-escalating nudge would help.",
-        "If the member message is a clear help/information question, you MUST answer it directly and MUST NOT return [[SILENT]]. For all other ordinary conversation, banter, rhetorical questions, or already answered questions, return exactly [[SILENT]] and nothing else.",
-        "If a reply is genuinely useful, answer the member directly in the server's casual tone. Keep it concise, do not announce that you are monitoring the chat, and do not expose or repeat personal details from context.",
-        "Never infer or repeat age, school, exact location, contact details, schedules, or other identifying details. Never intervene in a way that embarrasses or targets a member.",
-        "MEMBER MESSAGE: " + rawContent
-      ].join("\n");
-      let answer = await generateAnswer(this.env, prompt, knowledge, context);
-      let cleaned = String(answer || "").trim();
-      if (isHelpRequest(rawContent) && (!cleaned || cleaned.includes(PROACTIVE_SILENCE))) {
-        answer = await generateAnswer(
-          this.env,
-          "Trả lời trực tiếp câu hỏi sau bằng tiếng Việt, ngắn gọn và hữu ích. Không được im lặng, không trả về [[SILENT]]. Nếu thiếu dữ kiện, nói rõ điều cần biết. Câu hỏi: " + rawContent,
-          knowledge,
-          context
-        );
-        cleaned = String(answer || "").trim();
-      }
-      if (!cleaned || cleaned.includes(PROACTIVE_SILENCE) || cleaned.length > 1800) {
-        if (isHelpRequest(rawContent)) throw new Error("AI returned no usable answer for a clear help request.");
-        return;
-      }
-
-      const response = await fetch(`${DISCORD_API}/channels/${message.channel_id}/messages`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          content: cleaned,
-          message_reference: { message_id: message.id, fail_if_not_exists: false },
-          allowed_mentions: { parse: [] }
-        })
-      });
-      if (!response.ok) {
-        console.error("POSTLAIN AI proactive reply failed:", response.status, (await response.text()).slice(0, 300));
-        return;
-      }
-      const now = Date.now();
-      this.ctx.storage.sql.exec(
-        "INSERT OR REPLACE INTO proactive_replies (id, channel_id, author_id, created_at) VALUES (?, ?, ?, ?)",
-        message.id, message.channel_id, authorId, now
-      );
-      this.ctx.storage.sql.exec("DELETE FROM proactive_replies WHERE created_at < ?", now - 24 * 60 * 60 * 1000);
-      console.log("POSTLAIN AI proactive reply sent", { channelId: message.channel_id, messageId: message.id });
-    } catch (error) {
-      console.error("POSTLAIN AI proactive handler failed:", String(error?.message || error), error?.stack || "");
-      // Make provider/configuration failures visible instead of silently ignoring a member's question.
-      if (isHelpRequest(rawContent)) {
-        try {
-          const notice = await fetch(`${DISCORD_API}/channels/${message.channel_id}/messages`, {
-            method: "POST",
-            headers: {
-              Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}`,
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              content: "Tao nhận được câu hỏi rồi nhưng hệ thống AI đang lỗi, chưa trả lời được lúc này. Báo admin kiểm tra provider/API nhé. 😵‍💫",
-              message_reference: { message_id: message.id, fail_if_not_exists: false },
-              allowed_mentions: { parse: [] }
-            })
-          });
-          if (!notice.ok) console.error("POSTLAIN AI proactive error notice failed:", notice.status, (await notice.text()).slice(0, 300));
-        } catch (noticeError) {
-          console.error("POSTLAIN AI proactive error notice delivery failed:", String(noticeError?.message || noticeError));
-        }
-      }
-    }
-  }
-
-  async sendWelcome(memberData = {}) {
-    const user = memberData.user || memberData;
-    const userId = String(user.id || "");
-    if (!userId) return;
-
-    let welcomeChannelId = String(this.env.WELCOME_CHANNEL_ID || "").trim();
-    if (!welcomeChannelId) {
-      const candidates = [...this.channelNames.entries()];
-      const match = candidates.find(([, name]) => {
-        const normalized = String(name || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9-]/g, "");
-        return /^(welcome|welcome-room|welcome-here|new-members|introductions|chao-mung|chao-don|gioi-thieu|gioi-thieu-ban-than|introduce-yourself|phong-chao-mung)$/.test(normalized);
-      });
-      welcomeChannelId = match?.[0] || "";
-    }
-
-    if (!welcomeChannelId) {
-      console.warn("POSTLAIN AI welcome skipped: set WELCOME_CHANNEL_ID or create a clearly named public welcome channel.");
+    if (!authorId) return;
+    const response = await fetch(DISCORD_API + "/channels/" + message.channel_id + "/messages", {
+      method: "POST",
+      headers: { Authorization: "Bot " + this.env.DISCORD_BOT_TOKEN, "Content-Type": "application/json" },
+      body: JSON.stringify({
+        content: responseText,
+        message_reference: { message_id: message.id, fail_if_not_exists: false },
+        allowed_mentions: { parse: [] }
+      })
+    });
+    if (!response.ok) {
+      console.error("POSTLAIN support reply failed:", response.status, (await response.text()).slice(0, 300));
       return;
     }
-
-    const displayName = String(user.global_name || user.username || "bạn mới").slice(0, 80);
-    const payload = {
-      content: `Chào mừng <@${userId}> đến với **POSTLAIN**! 🎉\n\nTụi mình rất vui vì có mày ở đây. Cứ giới thiệu đôi chút về bản thân, khám phá các phòng chat và thoải mái tham gia cùng mọi người nhé. Nếu cần hỗ trợ, cứ gọi POSTLAIN AI bằng cách tag tao.\n\nChúc mày có khoảng thời gian thật vui ở đây! 🖤`,
-      allowed_mentions: { users: [userId] }
-    };
-
-    try {
-      const response = await fetch(`${DISCORD_API}/channels/${welcomeChannelId}/messages`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify(payload)
-      });
-      if (!response.ok) {
-        console.error("POSTLAIN AI welcome failed:", response.status, (await response.text()).slice(0, 400));
-        return;
-      }
-      console.log("POSTLAIN AI welcomed new member", { userId, welcomeChannelId, displayName });
-    } catch (error) {
-      console.error("POSTLAIN AI welcome delivery failed:", String(error?.message || error));
-    }
-  }
-
-  getContext(channelId = "") {
-    const channelRows = channelId
-      ? this.ctx.storage.sql.exec(
-          "SELECT channel_name, author_name, content, created_at FROM community_messages WHERE channel_id = ? ORDER BY created_at DESC LIMIT 18",
-          channelId
-        ).toArray().reverse()
-      : [];
-    const serverRows = this.ctx.storage.sql.exec(
-      "SELECT channel_name, author_name, content, created_at FROM community_messages ORDER BY created_at DESC LIMIT 12"
-    ).toArray().reverse();
-    const seen = new Set();
-    const rows = [...channelRows, ...serverRows].filter(row => {
-      const key = row.created_at + "|" + row.author_name + "|" + row.content;
-      if (seen.has(key)) return false;
-      seen.add(key);
-      return true;
-    }).slice(-28);
-    return rows.map(row => `[#${row.channel_name}] ${row.author_name}: ${row.content}`).join("\n").slice(-10000);
-  }
-
-  async loadKnowledge() {
-    if (!this.env.KNOWLEDGE_CHANNEL_ID) return "";
-    try {
-      const response = await fetch(`${DISCORD_API}/channels/${this.env.KNOWLEDGE_CHANNEL_ID}/messages?limit=100`, {
-        headers: { Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}` }
-      });
-      if (!response.ok) return "";
-      const messages = await response.json();
-      return messages.filter(m => m.author?.id === this.env.DISCORD_APPLICATION_ID && m.embeds?.[0]?.title === "POSTLAIN KNOWLEDGE")
-        .slice(0, 10).reverse()
-        .map((m, i) => `${i + 1}. [${m.embeds[0].fields?.find(f => f.name === "Topic")?.value || "General"}] ${m.embeds[0].description || ""}`)
-        .join("\n").slice(0, 10000);
-    } catch (error) {
-      console.error("Could not load curated knowledge:", error);
-      return "";
-    }
-  }
-
-  async replyToMention(message, rawContent) {
-    const userId = message.author?.id;
     const now = Date.now();
-    if (!userId) return;
-    const lastReplyAt = this.lastMentionReplyAt.get(userId) || 0;
-    if (now - lastReplyAt < 5000) {
-      const waitResponse = await fetch(`${DISCORD_API}/channels/${message.channel_id}/messages`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}`,
-          "Content-Type": "application/json"
-        },
-        body: JSON.stringify({
-          content: "Tao đang xử lý tin nhắn vừa rồi. Chờ tao vài giây rồi hỏi tiếp nhé!",
-          message_reference: { message_id: message.id, fail_if_not_exists: false },
-          allowed_mentions: { parse: [] }
-        })
-      });
-      if (!waitResponse.ok) {
-        console.error("POSTLAIN AI cooldown notice failed:", waitResponse.status, (await waitResponse.text()).slice(0, 300));
-      }
-      return;
-    }
-    this.lastMentionReplyAt.set(userId, now);
-    const question = rawContent.replace(/<@!?\d+>/g, "").trim();
-    if (!question) return;
-
-    try {
-      const knowledge = await this.loadKnowledge();
-      const context = this.getContext(message.channel_id);
-      const answer = await generateAnswer(this.env, question, knowledge, context);
-      for (const chunk of splitMessage(answer)) {
-        const response = await fetch(`${DISCORD_API}/channels/${message.channel_id}/messages`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            content: chunk,
-            message_reference: { message_id: message.id, fail_if_not_exists: false },
-            allowed_mentions: { parse: [] }
-          })
-        });
-        if (!response.ok) {
-          console.error("POSTLAIN AI mention reply failed:", response.status, (await response.text()).slice(0, 300));
-          break;
-        }
-      }
-    } catch (error) {
-      console.error("POSTLAIN AI mention handler failed:", String(error?.message || error), error?.stack || "");
-      try {
-        const fallback = await fetch(`${DISCORD_API}/channels/${message.channel_id}/messages`, {
-          method: "POST",
-          headers: {
-            Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}`,
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            content: `Tao đang bị lỗi AI thật rồi 😵‍💫\n\`${String(error?.message || "Unknown AI error").slice(0, 850)}\``,
-            message_reference: { message_id: message.id, fail_if_not_exists: false },
-            allowed_mentions: { parse: [] }
-          })
-        });
-        if (!fallback.ok) {
-          console.error("POSTLAIN AI fallback reply failed:", fallback.status, (await fallback.text()).slice(0, 300));
-        }
-      } catch (fallbackError) {
-        console.error("POSTLAIN AI fallback delivery failed:", String(fallbackError?.message || fallbackError));
-      }
-    }
+    this.ctx.storage.sql.exec("INSERT OR REPLACE INTO proactive_replies (id, channel_id, author_id, created_at) VALUES (?, ?, ?, ?)", message.id, message.channel_id, authorId, now);
+    this.ctx.storage.sql.exec("DELETE FROM proactive_replies WHERE created_at < ?", now - 24 * 60 * 60 * 1000);
+    console.log("POSTLAIN support reply sent", { channelId: message.channel_id, messageId: message.id });
   }
+
 }

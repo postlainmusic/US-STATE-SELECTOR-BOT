@@ -1,4 +1,7 @@
 import { generateAnswer } from "./ai/engine.js";
+import { DiscordGateway } from "./gateway.js";
+
+export { DiscordGateway };
 
 const API = "https://discord.com/api/v10";
 
@@ -256,7 +259,17 @@ async function handleInteraction(interaction, env, ctx) {
       const work = (async () => {
         try {
           const knowledge = await loadKnowledge(env);
-          const answer = await generateAnswer(env, question, knowledge);
+          let conversationContext = "";
+          try {
+            const gatewayId = env.GATEWAY.idFromName("postlain-ai-gateway");
+            const memoryResponse = await env.GATEWAY.get(gatewayId).fetch(
+              `https://gateway/context?channel_id=${encodeURIComponent(interaction.channel_id || "")}`
+            );
+            if (memoryResponse.ok) conversationContext = (await memoryResponse.json()).context || "";
+          } catch (memoryError) {
+            console.warn("POSTLAIN AI memory context unavailable:", String(memoryError?.message || memoryError).slice(0, 250));
+          }
+          const answer = await generateAnswer(env, question, knowledge, conversationContext);
           await sendAIResponse(env, interaction, answer);
         } catch (error) {
           console.error("POSTLAIN AI request failed:", error);
@@ -437,5 +450,13 @@ export default {
     catch { return new Response("Invalid JSON", { status: 400 }); }
 
     return handleInteraction(interaction, env, ctx);
+  },
+
+  async scheduled(controller, env, ctx) {
+    const gatewayId = env.GATEWAY.idFromName("postlain-ai-gateway");
+    ctx.waitUntil(
+      env.GATEWAY.get(gatewayId).fetch("https://gateway/ensure")
+        .catch(error => console.error("POSTLAIN AI Gateway ensure failed:", error))
+    );
   }
 };

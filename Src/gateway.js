@@ -117,7 +117,7 @@ export class DiscordGateway {
       this.ctx.storage.sql.exec(
         "INSERT OR REPLACE INTO word_chain_games (channel_id, active, starter_id, current_tail, used_words, last_player_id, moves, last_move_at) VALUES (?, 1, ?, NULL, '[]', NULL, 0, ?)",
         WORD_CHAIN_CHANNEL_ID, userId, Date.now());
-      return Response.json({ ok: true, message: "🎮 **Ván nối từ POSTLAIN bắt đầu!**\nMọi người lần lượt gửi cụm từ tiếng Việt gồm 2-5 tiếng. Người tiếp theo phải bắt đầu bằng tiếng cuối của cụm trước. Không lặp từ, không tự đi hai lượt liên tiếp. Mỗi lượt có 30 giây.\n\n🏁 <@" + userId + "> đã mở ván. Ai đi trước cũng được!" });
+      return Response.json({ ok: true, message: "🎮 **Ván nối từ POSTLAIN bắt đầu!**\nMọi người gửi cụm từ tiếng Việt đúng 2 tiếng. Người tiếp theo phải bắt đầu bằng tiếng cuối của cụm trước. Chỉ nhận cụm có trong từ điển, không lặp từ, không tự đi hai lượt liên tiếp. Mỗi lượt có 30 giây. Không cần dùng lệnh để bắt đầu, chỉ cần gửi cụm từ vào kênh.\n\n🏁 <@" + userId + "> đã mở ván. Ai đi trước cũng được!" });
     }
     if (url.pathname === "/wordchain/end" && request.method === "POST") {
       const payload = await request.json();
@@ -150,7 +150,7 @@ export class DiscordGateway {
         winnerId
       );
       await this.sendWordChainMessage(WORD_CHAIN_CHANNEL_ID,
-        "⏰ Hết 30 giây! Ván nối từ đã kết thúc. " + (winnerId ? "<@" + winnerId + "> thắng vì là người nối hợp lệ cuối cùng." : "Không có người thắng.") + " Dùng /noitu start để chơi ván mới."
+        "⏰ Hết 30 giây! Ván nối từ đã kết thúc. " + (winnerId ? "<@" + winnerId + "> thắng vì là người nối hợp lệ cuối cùng." : "Không có người thắng.") + " Gửi một cụm 2 tiếng hợp lệ vào kênh để tự mở ván mới."
       );
     }
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) {

@@ -54,6 +54,117 @@ const commands = [
   }
 ];
 
+
+  {
+    name: "help",
+    description: "Show the POSTLAIN community bot guide",
+    dm_permission: false
+  },
+  {
+    name: "ping",
+    description: "Check whether POSTLAIN is responding",
+    dm_permission: false
+  },
+  {
+    name: "serverinfo",
+    description: "Show server information",
+    dm_permission: false
+  },
+  {
+    name: "userinfo",
+    description: "View a member profile",
+    dm_permission: false,
+    options: [{
+      type: 6,
+      name: "user",
+      description: "Member to look up",
+      required: false
+    }]
+  },
+  {
+    name: "avatar",
+    description: "Show a member's avatar",
+    dm_permission: false,
+    options: [{
+      type: 6,
+      name: "user",
+      description: "Member whose avatar you want to see",
+      required: false
+    }]
+  },
+  {
+    name: "report",
+    description: "Send a private report to the Staff team",
+    dm_permission: false,
+    options: [{
+      type: 1,
+      name: "send",
+      description: "Submit a report / Gửi báo cáo",
+      options: [{
+        type: 3,
+        name: "details",
+        description: "Describe the issue. Do not include passwords or login codes.",
+        required: true
+      }]
+    }]
+  },
+  {
+    name: "poll",
+    description: "Create a community poll",
+    dm_permission: false,
+    options: [{
+      type: 1,
+      name: "create",
+      description: "Create a yes/no/community poll",
+      options: [{
+        type: 3,
+        name: "question",
+        description: "Question (up to 240 characters)",
+        required: true
+      }]
+    }]
+  },
+  {
+    name: "purge",
+    description: "Delete recent messages in this channel",
+    default_member_permissions: "8192",
+    dm_permission: false,
+    options: [{
+      type: 4,
+      name: "amount",
+      description: "Number of recent messages to delete (2-100)",
+      required: true,
+      min_value: 2,
+      max_value: 100
+    }]
+  },
+  {
+    name: "slowmode",
+    description: "Set this channel's slowmode",
+    default_member_permissions: "16",
+    dm_permission: false,
+    options: [{
+      type: 4,
+      name: "seconds",
+      description: "Seconds between messages (0-21600, 0 disables)",
+      required: true,
+      min_value: 0,
+      max_value: 21600
+    }]
+  },
+  {
+    name: "lock",
+    description: "Lock @everyone from sending messages in this channel",
+    default_member_permissions: "16",
+    dm_permission: false
+  },
+  {
+    name: "unlock",
+    description: "Restore @everyone message access in this channel",
+    default_member_permissions: "16",
+    dm_permission: false
+  },
+
 const endpoint = `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`;
 const response = await fetch(endpoint, {
   method: "PUT",

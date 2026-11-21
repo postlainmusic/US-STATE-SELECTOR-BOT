@@ -133,7 +133,9 @@ export class DiscordGateway {
       ws.addEventListener("message", event => {
         let packet;
         try { packet = JSON.parse(event.data); } catch { return; }
-        this.handlePacket(packet).catch(error => console.error("Gateway packet error:", error));
+        this.ctx.waitUntil(
+          this.handlePacket(packet).catch(error => console.error("Gateway packet error:", error))
+        );
       });
       ws.addEventListener("close", event => {
         this.clearHeartbeat();
@@ -145,7 +147,7 @@ export class DiscordGateway {
           this.persistSession();
         }
         console.warn("Discord Gateway closed:", event.code, event.reason);
-        this.ctx.storage.setAlarm(Date.now() + 7000);
+        this.ctx.waitUntil(this.ctx.storage.setAlarm(Date.now() + 7000));
       });
       ws.addEventListener("error", error => console.error("Discord Gateway socket error:", error));
       // Rotate before Cloudflare's 15-minute outbound-connection keepalive window.
@@ -201,6 +203,7 @@ export class DiscordGateway {
         this.resumeUrl = null;
         await this.persistSession();
       }
+      try { this.ws?.close(4000, "Invalid Gateway session"); } catch {}
       await this.ctx.storage.setAlarm(Date.now() + 5000);
       return;
     }

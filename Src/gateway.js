@@ -108,7 +108,14 @@ export class DiscordGateway {
 
   async connect() {
     const savedSession = await this.ctx.storage.get("gateway_session");
-    if (savedSession) {
+    // A previous Gateway session may have been identified with message-reading intents.
+    // Force a fresh IDENTIFY so Discord applies the reduced GUILDS-only intent set.
+    if (savedSession && savedSession.intents !== 1) {
+      this.sessionId = null;
+      this.seq = null;
+      this.resumeUrl = null;
+      await this.ctx.storage.delete("gateway_session");
+    } else if (savedSession) {
       this.sessionId = this.sessionId || savedSession.sessionId || null;
       this.seq = this.seq ?? savedSession.seq ?? null;
       this.resumeUrl = this.resumeUrl || savedSession.resumeUrl || null;
@@ -189,12 +196,12 @@ export class DiscordGateway {
           d: { token: this.env.DISCORD_BOT_TOKEN, session_id: this.sessionId, seq: this.seq }
         });
       } else {
-        // GUILDS + GUILD_MESSAGES + MESSAGE_CONTENT.
+        // GUILDS only. Chat message and message-content events are intentionally disabled.
         this.send({
           op: 2,
           d: {
             token: this.env.DISCORD_BOT_TOKEN,
-            intents: 33281,
+            intents: 1,
             properties: { os: "cloudflare-workers", browser: "postlain-community-assistant", device: "postlain-community-assistant" }
           }
         });
@@ -242,8 +249,6 @@ export class DiscordGateway {
     } else if (packet.t === "CHANNEL_CREATE" || packet.t === "CHANNEL_UPDATE" || packet.t === "THREAD_CREATE") {
       this.channelNames.set(packet.d.id, packet.d.name || "");
       if (packet.d.parent_id) this.channelParents.set(packet.d.id, packet.d.parent_id);
-    } else if (packet.t === "MESSAGE_CREATE") {
-      await this.handleMessage(packet.d);
     }
   }
 
@@ -278,7 +283,8 @@ export class DiscordGateway {
     await this.ctx.storage.put("gateway_session", {
       sessionId: this.sessionId,
       seq: this.seq,
-      resumeUrl: this.resumeUrl
+      resumeUrl: this.resumeUrl,
+      intents: 1
     });
   }
 

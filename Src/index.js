@@ -191,7 +191,7 @@ function helpPanel(category = "games") {
       title: "Trò chơi",
       description: "Chọn một trò chơi và tham gia ngay trong kênh được thiết lập.",
       fields: [
-        { name: "Nối từ", value: "Gửi cụm gồm **2 tiếng**. Tiếng đầu phải khớp với tiếng cuối của lượt trước. Không lặp cụm và không đi hai lượt liên tiếp. Mỗi lượt có 30 giây.", inline: false },
+        { name: "Nối từ", value: "Gửi cụm tiếng Việt gồm **2 tiếng**. Bot sẽ tự nối một cụm hợp lệ rồi nhường lượt lại cho người chơi. Cụm mới phải bắt đầu bằng tiếng cuối của cụm trước và không được lặp. Mỗi lượt có 30 giây. Gõ `start!` để mở ván hoặc `stop!` để kết thúc.", inline: false },
         { name: "Lệnh", value: "`/noitu start` mở ván · `/noitu end` kết thúc · `/noitu score` xem bảng xếp hạng", inline: false },
         { name: "Hồ sơ & từ điển", value: "`/nme` hồ sơ · `/nrank` bảng xếp hạng · `/de-xuat-tu` đề xuất cụm còn thiếu · `/them-tu` thêm từ (Admin) · `/duyet-tu` duyệt (Admin)", inline: false },
         { name: "Gold & mini game", value: "`/daily` nhận Gold · `/ngold` số dư · `/grank` top Gold · `/baucua` Bầu Cua · `/xu-xi` Kéo Búa Bao", inline: false },

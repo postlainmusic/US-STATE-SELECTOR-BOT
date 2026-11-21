@@ -43,7 +43,7 @@ Wallets, daily claims, game records and transaction receipts are stored in the e
 
 ## Word-chain opponent
 
-- The game alternates between a member and the bot: member phrase → bot phrase → next member phrase.
+- The game alternates between a member and the bot: member phrase → bot phrase → next member phrase. A valid phrase also starts a round automatically; `start!` and `stop!` are available in the game room.
 - Every accepted move is exactly two syllables and must connect to the final syllable of the previous move.
 - The bot chooses a non-repeated reply from the bundled Vietnamese phrase datasets. It does not call a paid AI model.
 - If the bot has no unused dictionary reply, the member who made the last valid move wins.

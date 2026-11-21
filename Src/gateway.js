@@ -380,8 +380,8 @@ export class DiscordGateway {
       return Response.json({
         ok: true,
         count: rows.length,
-        message: "📚 **ĐỀ XUẤT TỪ ĐANG CHỜ DUYỆT**\\n" + lines.join("\\n") +
-          "\\n\\nDuyệt: `/duyet-tu id:` · Từ chối: `/tu-choi-tu id:`"
+        message: "📚 **ĐỀ XUẤT TỪ ĐANG CHỜ DUYỆT**\n" + lines.join("\n") +
+          "\n\nDuyệt: `/duyet-tu id:` · Từ chối: `/tu-choi-tu id:`"
       });
     }
     if (url.pathname === "/wordchain/review-suggestion" && request.method === "POST") {

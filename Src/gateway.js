@@ -347,7 +347,7 @@ export class DiscordGateway {
     const mentionInPayload = Array.isArray(message.mentions) &&
       message.mentions.some(user => String(user.id) === botId);
     const mentionInContent = botId
-      ? new RegExp(`<@!?\\${botId}>`).test(content)
+      ? (content.includes(`<@${botId}>`) || content.includes(`<@!${botId}>`))
       : false;
     const mentioned = Boolean(botId && (mentionInPayload || mentionInContent));
 

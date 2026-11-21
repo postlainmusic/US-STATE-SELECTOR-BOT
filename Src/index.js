@@ -161,14 +161,14 @@ function isAdmin(interaction) {
   return (permissions & 8n) === 8n;
 }
 
-function isKnowledgeEntry(message) {
-  return message?.author?.bot === true && message?.embeds?.[0]?.title === "POSTLAIN KNOWLEDGE";
+function isKnowledgeEntry(message, env) {
+  return message?.author?.id === env.DISCORD_APPLICATION_ID && message?.embeds?.[0]?.title === "POSTLAIN KNOWLEDGE";
 }
 
 async function loadKnowledge(env) {
   if (!env.KNOWLEDGE_CHANNEL_ID) return "";
   const messages = await discord(`/channels/${env.KNOWLEDGE_CHANNEL_ID}/messages?limit=100`, env);
-  const entries = messages.filter(isKnowledgeEntry).slice(0, 10).reverse();
+  const entries = messages.filter(message => isKnowledgeEntry(message, env)).slice(0, 10).reverse();
   return entries.map((message, index) => {
     const embed = message.embeds[0];
     const topic = embed.fields?.find(field => field.name === "Topic")?.value || "General";
@@ -198,7 +198,7 @@ async function handleKnowledgeCommand(interaction, env) {
     const messageId = String(options.find(option => option.name === "entry_id")?.value || "").trim();
     if (!/^\d{17,20}$/.test(messageId)) return json({ type: 4, data: { content: "Entry ID không hợp lệ. Dùng /knowledge list để lấy ID.", flags: 64 } });
     const message = await discord(`/channels/${env.KNOWLEDGE_CHANNEL_ID}/messages/${messageId}`, env);
-    if (!isKnowledgeEntry(message)) return json({ type: 4, data: { content: "Không tìm thấy mục kiến thức hợp lệ để xóa.", flags: 64 } });
+    if (!isKnowledgeEntry(message, env)) return json({ type: 4, data: { content: "Không tìm thấy mục kiến thức hợp lệ để xóa.", flags: 64 } });
     await discord(`/channels/${env.KNOWLEDGE_CHANNEL_ID}/messages/${messageId}`, env, { method: "DELETE" });
     return json({ type: 4, data: { content: "🗑️ Đã xóa mục kiến thức.", flags: 64 } });
   }

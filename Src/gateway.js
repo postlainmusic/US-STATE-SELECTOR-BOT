@@ -434,7 +434,7 @@ export class DiscordGateway {
     const phrase = this.normalizeChainPhrase(message.content);
     if (!phrase || phrase.length > 80) return;
     const parts = phrase.split(" ");
-    if (parts.length !== 2 || parts.some(part => !/^[\\p{L}]+$/u.test(part))) {
+    if (parts.length !== 2 || parts.some(part => !/^[\p{L}]+$/u.test(part))) {
       await this.sendWordChainMessage(channelId, "📖 Mỗi lượt chỉ được gửi **đúng 2 tiếng**. Ví dụ: **con gà**.");
       return;
     }

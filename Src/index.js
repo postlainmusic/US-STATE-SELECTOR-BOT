@@ -339,6 +339,27 @@ async function handleInteraction(interaction, env, ctx) {
 
 
 
+
+    if (command === "noitu") {
+      const action = interaction.data?.options?.[0]?.name;
+      const GAME_CHANNEL_ID = "1573644570997035100";
+      if (String(interaction.channel_id || "") !== GAME_CHANNEL_ID) return ephemeral("🎮 Trò nối từ chỉ hoạt động tại <#" + GAME_CHANNEL_ID + "> nhé.");
+      const userId = String(interaction.member?.user?.id || interaction.user?.id || "");
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      if (action === "start") {
+        const result = await gateway.fetch("https://gateway/wordchain/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId }) });
+        return ephemeral((await result.json()).message || "Không thể mở ván mới.");
+      }
+      if (action === "end") {
+        const result = await gateway.fetch("https://gateway/wordchain/end", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, isAdmin: hasPermission(interaction, 8) }) });
+        return ephemeral((await result.json()).message || "Không thể kết thúc ván.");
+      }
+      if (action === "score") {
+        const result = await gateway.fetch("https://gateway/wordchain/score");
+        return ephemeral((await result.json()).message || "Chưa có bảng xếp hạng.");
+      }
+    }
+
     if (command === "coinflip") {
       const result = crypto.getRandomValues(new Uint8Array(1))[0] % 2 === 0 ? "🪙 **Heads**" : "🪙 **Tails**";
       return ephemeral(result);
@@ -372,7 +393,7 @@ async function handleInteraction(interaction, env, ctx) {
             title: "POSTLAIN COMMUNITY TOOLKIT",
             description: "Một bộ công cụ cho thành viên và đội ngũ quản trị.",
             fields: [
-              { name: "🙋 Thành viên", value: "`/help` · `/ping` · `/serverinfo` · `/userinfo` · `/avatar` · `/report send` · `/poll create` · `/coinflip` · `/roll` · `/choose`", inline: false },
+              { name: "🙋 Thành viên", value: "`/help` · `/ping` · `/serverinfo` · `/userinfo` · `/avatar` · `/report send` · `/poll create` · `/coinflip` · `/roll` · `/choose` · `/noitu start/end/score`", inline: false },
               { name: "🔊 Voice Assistant", value: "`/join` · `/leave` · `/speak` · `/voice status` · `/voice stop`", inline: false },
               { name: "🗺️ Cộng đồng", value: "`/statepanel publish` · `/feedback send`", inline: false },
               { name: "🛡️ Quản trị", value: "`/noti send` · `/purge` · `/slowmode` · `/lock` · `/unlock`", inline: false }

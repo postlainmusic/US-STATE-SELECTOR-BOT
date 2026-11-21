@@ -101,6 +101,12 @@ const commands = [
     }]
   },
   {
+    name: "tu-cho-duyet",
+    description: "Xem danh sách cụm từ đang chờ Admin duyệt",
+    default_member_permissions: "8",
+    dm_permission: false
+  },
+  {
     name: "duyet-tu",
     description: "Duyệt một đề xuất từ (Admin)",
     default_member_permissions: "8",

@@ -18,7 +18,7 @@ export function isHelpRequest(content) {
 export function isProactiveCandidate(content) {
   const text = String(content || "").trim();
   if (text.length < 8 || text.length > MAX_MESSAGE_LENGTH) return false;
-  const helpSignal = /(cho hỏi|cho minh hỏi|cho mình hỏi|có ai biết|ai biết không|mọi người ơi.*\?|giúp (mình|tôi|tao|với)|help me|need help|anyone know|can someone|does anyone know|how (do|can|to)|where (can|is|do)|làm sao|ở đâu|thế nào|như nào|vì sao|tại sao|bao nhiêu|khi nào|cách nào|cách làm)/i.test(text);
+  const helpSignal = isHelpRequest(text);
   const conflictSignal = /(cãi nhau|tranh cãi|công kích nhau|chửi nhau|đang căng|căng thẳng|bình tĩnh lại|đe dọa|bắt nạt|harass|bully|threaten)/i.test(text);
   return helpSignal || conflictSignal;
 }

@@ -207,7 +207,8 @@ function helpPanel(category = "games") {
         { name: "Nối từ", value: "Gửi cụm tiếng Việt gồm **2 tiếng**. Bot sẽ tự nối một cụm hợp lệ rồi nhường lượt lại cho người chơi. Cụm mới phải bắt đầu bằng tiếng cuối của cụm trước và không được lặp. Mỗi lượt có 30 giây. Gõ `start!` để mở ván hoặc `stop!` để kết thúc.", inline: false },
         { name: "Lệnh", value: "`/noitu start` mở ván · `/noitu end` kết thúc · `/noitu score` xem bảng xếp hạng", inline: false },
         { name: "Hồ sơ & từ điển", value: "`/nme` hồ sơ · `/nrank` bảng xếp hạng · `/de-xuat-tu` đề xuất cụm còn thiếu · `/them-tu` thêm từ (Admin) · `/duyet-tu` duyệt (Admin)", inline: false },
-        { name: "Gold & mini game", value: "`/daily` nhận Gold · `/ngold` số dư · `/grank` top Gold · `/baucua` Bầu Cua · `/xu-xi` Kéo Búa Bao", inline: false },
+        { name: "Gold & mini game", value: "`/daily` nhận 100.000 Gold · `/ngold` số dư · `/grank` top Gold · `/mayman` tỷ lệ thắng 48% · `/baucua` Bầu Cua · `/xu-xi` Kéo Búa Bao", inline: false },
+        { name: "Quản lý Gold", value: "`/money` cộng Gold cho thành viên (Admin, phản hồi riêng tư)", inline: false },
         { name: "Đố vui", value: "`/vtv` Vua Tiếng Việt · `/vtvrank` bảng xếp hạng · `/ncf` tung xu · `/ntxx` xúc xắc", inline: false }
       ]
     },
@@ -273,7 +274,8 @@ const GAME_HUB_ITEMS = {
   baucua: { label: "Bầu Cua", emoji: "🦀", description: "Chọn cửa, đặt Gold ảo và thử vận may với ba viên xúc xắc.", instructions: "Chọn một trong sáu linh vật và mức cược. Gold chỉ dùng trong server, không có giá trị tiền thật.", command: "`/baucua animal amount` · `/ngold` · `/daily`" },
   xuxi: { label: "Kéo Búa Bao", emoji: "✊", description: "Đối đầu POSTLAIN bằng Kéo, Búa hoặc Bao.", instructions: "Chọn nước đi và có thể cược Gold ảo. Không cược thì chơi miễn phí.", command: "`/xu-xi choice amount`" },
   vtv: { label: "Vua Tiếng Việt", emoji: "📚", description: "Trả lời câu hỏi tiếng Việt trắc nghiệm. Ai đúng đầu tiên sẽ ghi điểm.", instructions: "Một câu hỏi, bốn lựa chọn. Bấm đáp án ngay trên câu hỏi để ghi điểm.", command: "`/vtv` · `/vtvrank`", launch: "vtv" },
-  daily: { label: "Điểm danh", emoji: "🎁", description: "Nhận Gold mỗi ngày và tăng thưởng theo chuỗi điểm danh.", instructions: "Mỗi ngày nhận một lần. Duy trì chuỗi ngày liên tiếp để tăng phần thưởng.", command: "`/daily` · `/ngold` · `/grank`", launch: "daily" },
+  daily: { label: "Điểm danh", emoji: "🎁", description: "Nhận 100.000 Gold mỗi ngày.", instructions: "Mỗi ngày nhận một lần. Gold được cộng thẳng vào ví.", command: "`/daily` · `/ngold` · `/grank`", launch: "daily" },
+  mayman: { label: "Thử vận may", emoji: "🍀", description: "Mini game đặt cược với tỷ lệ thắng 48%.", instructions: "Chọn mức cược từ 10 đến 10.000 Gold. Thắng nhận tổng 2 lần tiền cược, thua mất tiền cược.", command: "`/mayman amount`" },
   party: { label: "Trò nhanh", emoji: "🎲", description: "Tung xu, xúc xắc hoặc chọn ngẫu nhiên.", instructions: "Dùng các lệnh nhanh để tung xu, gieo xúc xắc hoặc nhờ bot chọn giúp.", command: "`/ncf` · `/ntxx` · `/choose`" }
 };
 
@@ -282,13 +284,14 @@ function gameHubPanel() {
     embeds: [{
       color: COLORS.background,
       title: "🎮  GAME HUB",
-      description: "Chọn trò bạn muốn chơi. Mỗi trò có hướng dẫn và cách bắt đầu riêng.\n\n**6 hoạt động · 1 điểm đến · Gold ảo dùng trong server**",
+      description: "Chọn trò bạn muốn chơi. Mỗi trò có hướng dẫn và cách bắt đầu riêng.\n\n**7 hoạt động · 1 điểm đến · Gold ảo dùng trong server**",
       fields: [
         { name: "🔗 Nối từ", value: "Đấu nối từ cùng POSTLAIN trong phòng game.", inline: true },
         { name: "🦀 Bầu Cua", value: "Đặt Gold ảo, thử vận may.", inline: true },
         { name: "✊ Kéo Búa Bao", value: "Đối đầu bot, cược hoặc chơi vui.", inline: true },
         { name: "📚 Vua Tiếng Việt", value: "Đố vui trắc nghiệm tính điểm.", inline: true },
-        { name: "🎁 Điểm danh", value: "Nhận Gold và tích chuỗi ngày.", inline: true },
+        { name: "🎁 Điểm danh", value: "Nhận 100.000 Gold mỗi ngày.", inline: true },
+        { name: "🍀 Thử vận may", value: "Cược 10-10.000 Gold · thắng 48%.", inline: true },
         { name: "🎲 Trò nhanh", value: "Tung xu, xúc xắc, chọn ngẫu nhiên.", inline: true }
       ],
       footer: { text: "POSTLAIN GAMES  ·  Chọn một trò ở menu bên dưới" }

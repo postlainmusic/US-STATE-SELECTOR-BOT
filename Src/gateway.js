@@ -457,10 +457,16 @@ export class DiscordGateway {
     if (timedGame?.current_tail && Date.now() - Number(timedGame.last_move_at) >= WORD_CHAIN_TURN_MS) {
       this.ctx.storage.sql.exec("UPDATE word_chain_games SET active = 0 WHERE channel_id = ?", WORD_CHAIN_CHANNEL_ID);
       const winnerId = String(timedGame.last_player_id || "");
-      if (winnerId && winnerId !== WORD_CHAIN_BOT_ID) this.ctx.storage.sql.exec(
-        "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 1, 0, 0) ON CONFLICT(user_id) DO UPDATE SET wins = wins + 1",
-        winnerId
-      );
+      if (winnerId && winnerId !== WORD_CHAIN_BOT_ID) {
+        this.ctx.storage.sql.exec(
+          "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 1, 0, 0) ON CONFLICT(user_id) DO UPDATE SET wins = wins + 1",
+          winnerId
+        );
+        const reward = 5000;
+        const rewardId = "wordchain-timeout:" + WORD_CHAIN_CHANNEL_ID + ":" + Number(timedGame.last_move_at);
+        this.ctx.storage.sql.exec("INSERT INTO game_wallets (user_id, gold, updated_at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET gold = gold + excluded.gold, updated_at = excluded.updated_at", winnerId, reward, Date.now());
+        this.ctx.storage.sql.exec("INSERT OR IGNORE INTO game_transactions (id, user_id, amount, reason, created_at) VALUES (?, ?, ?, 'wordchain-win', ?)", rewardId, winnerId, reward, Date.now());
+      }
       await this.sendWordChainMessage(WORD_CHAIN_CHANNEL_ID,
         "⏰ Hết 30 giây! Ván nối từ đã kết thúc. " + (winnerId === WORD_CHAIN_BOT_ID ? "Bot thắng vì không có lượt nối tiếp theo." : winnerId ? "<@" + winnerId + "> thắng vì là người nối hợp lệ cuối cùng." : "Không có người thắng."),
         true
@@ -817,7 +823,11 @@ export class DiscordGateway {
         "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 1, 0, 0) ON CONFLICT(user_id) DO UPDATE SET wins = wins + 1",
         userId
       );
-      await this.sendWordChainMessage(channelId, "✅ <@" + userId + "> **" + humanPhrase + "**\n🤖 Bot hết cụm từ hợp lệ để nối. **Bạn thắng ván này!**", true);
+      const reward = 5000;
+      const rewardId = "wordchain-bot-empty:" + channelId + ":" + Date.now();
+      this.ctx.storage.sql.exec("INSERT INTO game_wallets (user_id, gold, updated_at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET gold = gold + excluded.gold, updated_at = excluded.updated_at", userId, reward, Date.now());
+      this.ctx.storage.sql.exec("INSERT INTO game_transactions (id, user_id, amount, reason, created_at) VALUES (?, ?, ?, 'wordchain-win', ?)", rewardId, userId, reward, Date.now());
+      await this.sendWordChainMessage(channelId, "✅ <@" + userId + "> **" + humanPhrase + "**\n🤖 Bot hết cụm từ hợp lệ để nối. **Bạn thắng ván này!**\n💰 Phần thưởng: **+5.000 Gold**", true);
       return;
     }
     const parsedBot = parseTwoSyllablePhrase(botPhrase);

@@ -272,7 +272,7 @@ async function handleInteraction(interaction, env, ctx) {
           const answer = await generateAnswer(env, question, knowledge, conversationContext);
           await sendAIResponse(env, interaction, answer);
         } catch (error) {
-          console.error("POSTLAIN AI request failed:", error);
+          console.error("POSTLAIN AI request failed:", String(error?.message || error), error?.stack || "");
           await editInteractionResponse(env, interaction, `⚠️ ${String(error.message || "AI request failed").slice(0, 700)}`);
         }
       })();
@@ -438,8 +438,24 @@ export default {
       return json({ ok: true, service: "state-selector-bot" });
     }
     if (request.method === "GET" && url.pathname === "/gateway/status") {
-      const gatewayId = env.GATEWAY.idFromName("postlain-ai-gateway");
-      return env.GATEWAY.get(gatewayId).fetch("https://gateway/status");
+      if (!env.GATEWAY) {
+        return json({ ok: false, state: "unavailable", error: "Durable Object binding GATEWAY is missing in this deployment." }, 503);
+      }
+      try {
+        const gatewayId = env.GATEWAY.idFromName("postlain-ai-gateway");
+        const gateway = env.GATEWAY.get(gatewayId);
+        // A status visit also performs an idempotent connection check, useful for Preview smoke tests.
+        await gateway.fetch("https://gateway/ensure");
+        return await gateway.fetch("https://gateway/status");
+      } catch (error) {
+        console.error("POSTLAIN AI Gateway status failed:", String(error?.message || error), error?.stack || "");
+        return json({
+          ok: false,
+          state: "error",
+          error: String(error?.message || "Gateway runtime error").slice(0, 300),
+          errorName: String(error?.name || "Error")
+        }, 503);
+      }
     }
     if (request.method !== "POST" || url.pathname !== "/interactions") {
       return json({ error: "Not found" }, 404);
@@ -457,10 +473,14 @@ export default {
   },
 
   async scheduled(controller, env, ctx) {
+    if (!env.GATEWAY) {
+      console.error("POSTLAIN AI Gateway ensure skipped: Durable Object binding GATEWAY is missing.");
+      return;
+    }
     const gatewayId = env.GATEWAY.idFromName("postlain-ai-gateway");
     ctx.waitUntil(
       env.GATEWAY.get(gatewayId).fetch("https://gateway/ensure")
-        .catch(error => console.error("POSTLAIN AI Gateway ensure failed:", error))
+        .catch(error => console.error("POSTLAIN AI Gateway ensure failed:", String(error?.message || error), error?.stack || ""))
     );
   }
 };

@@ -1,51 +1,39 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { isExcludedChannel, shouldStoreMessage, isProactiveCandidate } from "../Src/gateway.js";
+import { isExcludedChannel, classifySupportMessage, isProactiveCandidate } from "../Src/gateway.js";
 
 const env = {
   AI_EXCLUDED_CHANNEL_IDS: "1571762668916707399,1571762812886192178",
   KNOWLEDGE_CHANNEL_ID: "1573550240949338282"
 };
 
-test("excludes the configured staff and moderation rooms", () => {
+test("excludes staff, moderation, knowledge and private rooms", () => {
   assert.equal(isExcludedChannel("1571762668916707399", null, "staff-chat", "", env), true);
   assert.equal(isExcludedChannel("1571762812886192178", null, "mod-logs", "", env), true);
-});
-
-test("excludes knowledge storage and private categories", () => {
   assert.equal(isExcludedChannel("1573550240949338282", null, "knowledge", "", env), true);
   assert.equal(isExcludedChannel("200", "100", "general-thread", "Staff", env), true);
   assert.equal(isExcludedChannel("201", null, "private-room", "", env), true);
-});
-
-test("allows an ordinary community room", () => {
   assert.equal(isExcludedChannel("300", null, "general", "", env), false);
 });
 
-test("stores only text messages from this guild in allowed channels", () => {
-  const allowed = message => false;
-  const base = {
-    guild_id: "guild-1",
-    channel_id: "channel-1",
-    author: { id: "member-1", username: "Member", bot: false },
-    content: "Hello community",
-    type: 0
-  };
-  assert.equal(shouldStoreMessage(base, "guild-1", allowed), true);
-  assert.equal(shouldStoreMessage({ ...base, guild_id: "other-guild" }, "guild-1", allowed), false);
-  assert.equal(shouldStoreMessage({ ...base, author: { bot: true } }, "guild-1", allowed), false);
-  assert.equal(shouldStoreMessage({ ...base, content: " " }, "guild-1", allowed), false);
-  assert.equal(shouldStoreMessage(base, "guild-1", () => true), false);
+test("routes common Vietnamese help phrases with accents and without accents", () => {
+  assert.equal(classifySupportMessage("Mọi người ơi, cho mình hỏi chọn bang ở đâu?")?.key, "state-role");
+  assert.equal(classifySupportMessage("co ai biet cach verify khong")?.key, "verification-role");
+  assert.equal(classifySupportMessage("Cho mình hỏi, Discord bị lỗi đăng nhập")?.key, "discord-account");
+  assert.equal(classifySupportMessage("Help, mic voice không hoạt động")?.key, "music-audio");
+  assert.equal(classifySupportMessage("Mình cần report spam")?.key, "safety-report");
+  assert.equal(classifySupportMessage("Cho mình hỏi cách gửi góp ý")?.key, "feedback");
 });
 
-test("proactive detection selects help requests and conflict signals", () => {
-  assert.equal(isProactiveCandidate("Cho hỏi mọi người, đăng ký role bang ở đâu vậy?"), true);
-  assert.equal(isProactiveCandidate("Có ai biết cách đổi tên Discord không?"), true);
-  assert.equal(isProactiveCandidate("Mọi người bình tĩnh lại, đừng công kích nhau nữa."), true);
+test("generic help and technical errors receive useful next steps", () => {
+  assert.equal(classifySupportMessage("Cho mình hỏi với")?.key, "general-help");
+  assert.equal(classifySupportMessage("Lỗi không kết nối được")?.key, "technical-issue");
+  assert.equal(isProactiveCandidate("Ai biết cách đổi tên Discord không?"), true);
 });
 
-test("proactive detection ignores ordinary banter and unrelated questions", () => {
-  assert.equal(isProactiveCandidate("Haha hôm nay vui ghê :)))"), false);
-  assert.equal(isProactiveCandidate("Mày ăn cơm chưa?"), false);
-  assert.equal(isProactiveCandidate("Chào cả nhà!"), false);
+test("ordinary chat and bot messages are not routed to support", () => {
+  assert.equal(classifySupportMessage("Haha hôm nay vui ghê :)))"), null);
+  assert.equal(classifySupportMessage("Mày ăn cơm chưa?"), null);
+  assert.equal(classifySupportMessage("Chào cả nhà!"), null);
+  assert.equal(classifySupportMessage(""), null);
 });

@@ -5,6 +5,8 @@ const DEFAULT_EXCLUDED_CHANNELS = new Set([
 ]);
 const PRIVATE_NAME = /(^|[-_ ])(staff|admin|moderation|modlog|mod-logs|ticket|private|internal)([-_ ]|$)/i;
 const MAX_MESSAGE_LENGTH = 1800;
+const WORD_CHAIN_CHANNEL_ID = "1573644570997035100";
+const WORD_CHAIN_TURN_MS = 30_000;
 
 export { classifySupportMessage, isHelpRequest, isProactiveCandidate } from "./support/engine.js";
 import { classifySupportMessage } from "./support/engine.js";
@@ -61,6 +63,17 @@ export class DiscordGateway {
       )
     `);
     this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_support_sessions_created ON support_sessions(created_at)");
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS word_chain_games (
+        channel_id TEXT PRIMARY KEY, active INTEGER NOT NULL, starter_id TEXT NOT NULL,
+        current_tail TEXT, used_words TEXT NOT NULL, last_player_id TEXT,
+        moves INTEGER NOT NULL DEFAULT 0, last_move_at INTEGER NOT NULL
+      )`);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS word_chain_scores (
+        user_id TEXT PRIMARY KEY, wins INTEGER NOT NULL DEFAULT 0,
+        losses INTEGER NOT NULL DEFAULT 0, moves INTEGER NOT NULL DEFAULT 0
+      )`);
 
   }
 
@@ -110,7 +123,7 @@ export class DiscordGateway {
     const savedSession = await this.ctx.storage.get("gateway_session");
     // A previous Gateway session may have been identified with message-reading intents.
     // Force a fresh IDENTIFY so Discord applies the reduced GUILDS-only intent set.
-    if (savedSession && savedSession.intents !== 1) {
+    if (savedSession && savedSession.intents !== 33281) {
       this.sessionId = null;
       this.seq = null;
       this.resumeUrl = null;
@@ -196,12 +209,12 @@ export class DiscordGateway {
           d: { token: this.env.DISCORD_BOT_TOKEN, session_id: this.sessionId, seq: this.seq }
         });
       } else {
-        // GUILDS only. Chat message and message-content events are intentionally disabled.
+        // GUILDS + GUILD_MESSAGES + MESSAGE_CONTENT. Only the dedicated word-chain room is processed.
         this.send({
           op: 2,
           d: {
             token: this.env.DISCORD_BOT_TOKEN,
-            intents: 1,
+            intents: 33281,
             properties: { os: "cloudflare-workers", browser: "postlain-community-assistant", device: "postlain-community-assistant" }
           }
         });
@@ -246,6 +259,8 @@ export class DiscordGateway {
       this.readyAt = new Date().toISOString();
       await this.refreshChannels();
       console.log("POSTLAIN Support Gateway session resumed.");
+    } else if (packet.t === "MESSAGE_CREATE") {
+      if (String(packet.d?.channel_id || "") === WORD_CHAIN_CHANNEL_ID) await this.handleWordChainMessage(packet.d);
     } else if (packet.t === "CHANNEL_CREATE" || packet.t === "CHANNEL_UPDATE" || packet.t === "THREAD_CREATE") {
       this.channelNames.set(packet.d.id, packet.d.name || "");
       if (packet.d.parent_id) this.channelParents.set(packet.d.id, packet.d.parent_id);
@@ -284,7 +299,7 @@ export class DiscordGateway {
       sessionId: this.sessionId,
       seq: this.seq,
       resumeUrl: this.resumeUrl,
-      intents: 1
+      intents: 33281
     });
   }
 
@@ -353,6 +368,70 @@ export class DiscordGateway {
     // Keep unknown channels fail-closed. Never process a channel whose privacy cannot be classified.
     if (!channelName) return true;
     return isExcludedChannel(channelId, parentId, channelName, parentName, this.env);
+  }
+
+  async sendWordChainMessage(channelId, content) {
+    const response = await fetch(DISCORD_API + "/channels/" + channelId + "/messages", {
+      method: "POST", headers: { Authorization: "Bot " + this.env.DISCORD_BOT_TOKEN, "Content-Type": "application/json" },
+      body: JSON.stringify({ content, allowed_mentions: { parse: [] } })
+    });
+    if (!response.ok) console.error("POSTLAIN word-chain reply failed:", response.status, (await response.text()).slice(0, 300));
+  }
+
+  normalizeChainPhrase(value) {
+    return String(value || "").normalize("NFC").toLocaleLowerCase("vi-VN")
+      .replace(/^[^\\p{L}]+|[^\\p{L}]+$/gu, "").replace(/\\s+/g, " ").trim();
+  }
+
+  async handleWordChainMessage(message) {
+    const channelId = WORD_CHAIN_CHANNEL_ID;
+    if (!message || String(message.guild_id || "") !== String(this.env.DISCORD_GUILD_ID || "")) return;
+    if (String(message.channel_id || "") !== channelId || message.author?.bot || message.webhook_id) return;
+    const phrase = this.normalizeChainPhrase(message.content);
+    if (!phrase || phrase.length > 80) return;
+    const parts = phrase.split(" ");
+    if (parts.length < 2 || parts.length > 5 || parts.some(part => !/^[\\p{L}]+$/u.test(part))) return;
+    const userId = String(message.author?.id || "");
+    if (!userId) return;
+    const row = this.ctx.storage.sql.exec("SELECT * FROM word_chain_games WHERE channel_id = ? AND active = 1", channelId).toArray()[0];
+    if (!row) return;
+    const now = Date.now();
+    const used = (() => { try { return JSON.parse(row.used_words || "[]"); } catch { return []; } })();
+    const previousPlayer = String(row.last_player_id || "");
+    const previousTail = String(row.current_tail || "");
+
+    if (row.last_move_at && now - Number(row.last_move_at) > WORD_CHAIN_TURN_MS) {
+      this.ctx.storage.sql.exec("UPDATE word_chain_games SET active = 0 WHERE channel_id = ?", channelId);
+      if (previousPlayer) this.ctx.storage.sql.exec(
+        "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 1, 0, 0) ON CONFLICT(user_id) DO UPDATE SET wins = wins + 1", previousPlayer);
+      await this.sendWordChainMessage(channelId, "⏰ Quá 30 giây không có lượt mới! <@" + previousPlayer + "> thắng vì là người nối hợp lệ cuối cùng. Dùng /noitu start để chơi ván mới.");
+      return;
+    }
+
+    const fail = async reason => {
+      this.ctx.storage.sql.exec("UPDATE word_chain_games SET active = 0 WHERE channel_id = ?", channelId);
+      if (previousPlayer && previousPlayer !== userId) this.ctx.storage.sql.exec(
+        "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 1, 0, 0) ON CONFLICT(user_id) DO UPDATE SET wins = wins + 1", previousPlayer);
+      this.ctx.storage.sql.exec(
+        "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 0, 1, 0) ON CONFLICT(user_id) DO UPDATE SET losses = losses + 1", userId);
+      await this.sendWordChainMessage(channelId, "❌ <@" + userId + "> " + reason + (previousPlayer && previousPlayer !== userId ? "\\n🏆 <@" + previousPlayer + "> thắng ván này!" : "") + "\\nDùng /noitu start để mở ván mới.");
+    };
+
+    if (previousPlayer && previousPlayer === userId) {
+      await this.sendWordChainMessage(channelId, "⏳ Chờ người khác nối từ nhé, không tự đi hai lượt liên tiếp!");
+      return;
+    }
+    if (used.includes(phrase)) { await fail("cụm từ **" + phrase + "** đã được dùng rồi. Trùng từ, thua ván!"); return; }
+    if (previousTail && parts[0] !== previousTail) { await fail("nối sai! Cụm từ phải bắt đầu bằng **" + previousTail + "**."); return; }
+
+    const nextTail = parts[parts.length - 1];
+    used.push(phrase);
+    this.ctx.storage.sql.exec(
+      "UPDATE word_chain_games SET current_tail = ?, used_words = ?, last_player_id = ?, moves = moves + 1, last_move_at = ? WHERE channel_id = ? AND active = 1",
+      nextTail, JSON.stringify(used), userId, now, channelId);
+    this.ctx.storage.sql.exec(
+      "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 0, 0, 1) ON CONFLICT(user_id) DO UPDATE SET moves = moves + 1", userId);
+    await this.sendWordChainMessage(channelId, "✅ **" + phrase + "**\\n🔗 Từ tiếp theo phải bắt đầu bằng: **" + nextTail + "**  ·  <@" + userId + "> đã nối thành công!");
   }
 
   async handleMessage(message) {

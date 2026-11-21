@@ -362,8 +362,20 @@ export class DiscordGateway {
     const session = this.getSupportSession(message.channel_id, authorId);
 
     if (session && /\b(staff|moderator|moderators|mod|admin|human)\b/.test(normalized)) {
-      if (!this.canSendProactive(message.channel_id, authorId)) return;
-      const notified = await this.notifyStaff(message, session.category, "member-requested-human");
+      if (!this.canSendProactive(message.channel_id, authorId, Date.now(), true)) return;
+      let escalationMessage = message;
+      if (session.sourceMessageId) {
+        try {
+          const originalResponse = await fetch(DISCORD_API + "/channels/" + message.channel_id + "/messages/" + session.sourceMessageId, { headers: { Authorization: "Bot " + this.env.DISCORD_BOT_TOKEN } });
+          if (originalResponse.ok) {
+            const original = await originalResponse.json();
+            escalationMessage = { ...message, id: original.id, content: "Original request: " + String(original.content || "").slice(0, 700) + "\\nMember follow-up: " + content.slice(0, 180) };
+          }
+        } catch (error) {
+          console.warn("Could not fetch original support message for escalation:", String(error?.message || error));
+        }
+      }
+      const notified = await this.notifyStaff(escalationMessage, session.category, "member-requested-human");
       const reply = notified
         ? "📨 Mình đã chuyển yêu cầu đến Staff. Hãy chờ đội ngũ phản hồi. Đừng gửi mật khẩu hoặc mã xác thực."
         : "⚠️ Chưa chuyển được yêu cầu tự động. Bạn hãy liên hệ Moderator trực tiếp trong server nhé.";
@@ -439,9 +451,10 @@ export class DiscordGateway {
     return null;
   }
 
-  canSendProactive(channelId, authorId, now = Date.now()) {
+  canSendProactive(channelId, authorId, now = Date.now(), isFollowUp = false) {
     const globalCount = this.ctx.storage.sql.exec("SELECT COUNT(*) AS count FROM proactive_replies WHERE created_at > ?", now - 60 * 60 * 1000).toArray()[0]?.count || 0;
     if (globalCount >= 8) return false;
+    if (isFollowUp) return true;
     const channelRecent = this.ctx.storage.sql.exec("SELECT COUNT(*) AS count FROM proactive_replies WHERE channel_id = ? AND created_at > ?", channelId, now - 60 * 1000).toArray()[0]?.count || 0;
     if (channelRecent > 0) return false;
     const authorRecent = this.ctx.storage.sql.exec("SELECT COUNT(*) AS count FROM proactive_replies WHERE author_id = ? AND created_at > ?", authorId, now - 2 * 60 * 1000).toArray()[0]?.count || 0;

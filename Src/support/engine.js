@@ -26,7 +26,7 @@ const HELP_CUES = [
 const CATEGORIES = [
   {
     key: "safety-report", priority: 100, staff: true,
-    terms: ["bao cao", "report", "scam", "lua dao", "spam", "quay roi", "bat nat", "harassment", "bullying", "doxx", "doxing", "threat", "de doa", "noi dung doc hai", "vi pham", "bi lua", "tai khoan gia"],
+    terms: ["bao cao", "report", "scam", "scammed", "got scammed", "someone scammed me", "lua dao", "spam", "quay roi", "bat nat", "harassment", "bullying", "doxx", "doxing", "threat", "de doa", "noi dung doc hai", "vi pham", "bi lua", "tai khoan gia"],
     vi: "🛡️ **Báo cáo an toàn**\nNếu có spam, lừa đảo, quấy rối hoặc nội dung nguy hiểm, đừng tranh cãi hay đăng thông tin riêng tư công khai. Hãy gửi link tin nhắn, ảnh bằng chứng và mô tả ngắn cho Moderator/Staff. Nếu có nguy cơ tức thời, báo Staff ngay.",
     en: "🛡️ **Safety report**\nFor spam, scams, harassment, threats, or harmful content, avoid engaging publicly. Send a message link, screenshots, and a short description to a Moderator/Staff member. Contact Staff immediately if someone may be in danger.",
     followVi: "Mày đang muốn báo cáo hành vi nào, và có link tin nhắn hoặc ảnh bằng chứng không?",

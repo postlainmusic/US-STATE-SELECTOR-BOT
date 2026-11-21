@@ -30708,4 +30708,4 @@ export const VIETNAMESE_PLAYER_WORDS = new Set([
 "ỷ lại",
 "ỷ trọng"
 ]);
-export const VIETNAMESE_CURATED_WORDS = new Set(["gái tây","tây tạng"]);
+export const VIETNAMESE_CURATED_WORDS = new Set(["gái tây","tây tạng","nhật bản","bản đồ","đồ chơi","chơi game","game thủ"]);

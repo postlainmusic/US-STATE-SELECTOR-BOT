@@ -455,6 +455,13 @@ async function handleInteraction(interaction, env, ctx) {
       return ephemeral((await result.json()).message || "Không gửi được đề xuất.");
     }
 
+    if (command === "tu-cho-duyet") {
+      if (!hasPermission(interaction, 8)) return ephemeral("Chỉ Admin mới có thể xem danh sách đề xuất.");
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/wordchain/pending-suggestions?isAdmin=true");
+      return ephemeral((await result.json()).message || "Không lấy được danh sách đề xuất.");
+    }
+
     if (command === "duyet-tu" || command === "tu-choi-tu") {
       if (!hasPermission(interaction, 8)) return ephemeral("Chỉ Admin mới có thể duyệt đề xuất.");
       const userId = String(interaction.member?.user?.id || interaction.user?.id || "");

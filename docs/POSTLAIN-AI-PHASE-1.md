@@ -11,7 +11,7 @@ Existing commands and behavior are preserved:
 - State selector component interactions
 
 New command:
-- `/ask question:<text>`
+- `/ask question:<text>` (Administrator permission required during beta)
 
 ## AI provider fallback
 

@@ -9,6 +9,11 @@ if (!appId || !botToken || !guildId) {
 
 const commands = [
   {
+    name: "game",
+    description: "Mở bảng chọn trò chơi POSTLAIN",
+    dm_permission: false
+  },
+  {
     name: "gamepanel",
     description: "Đăng bảng chọn trò chơi POSTLAIN",
     default_member_permissions: "8",

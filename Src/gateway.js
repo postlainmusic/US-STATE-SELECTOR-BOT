@@ -369,7 +369,7 @@ export class DiscordGateway {
           const originalResponse = await fetch(DISCORD_API + "/channels/" + message.channel_id + "/messages/" + session.sourceMessageId, { headers: { Authorization: "Bot " + this.env.DISCORD_BOT_TOKEN } });
           if (originalResponse.ok) {
             const original = await originalResponse.json();
-            escalationMessage = { ...message, id: original.id, content: "Original request: " + String(original.content || "").slice(0, 700) + "\\nMember follow-up: " + content.slice(0, 180) };
+            escalationMessage = { ...message, id: original.id, content: "Original request: " + String(original.content || "").slice(0, 700) + "\nMember follow-up: " + content.slice(0, 180) };
           }
         } catch (error) {
           console.warn("Could not fetch original support message for escalation:", String(error?.message || error));

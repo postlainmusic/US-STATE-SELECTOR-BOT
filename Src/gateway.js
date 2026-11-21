@@ -1,7 +1,7 @@
 import { VIETNAMESE_WORDS } from "./wordlist.js";
 import { VIETNAMESE_PLAYER_WORDS, VIETNAMESE_CURATED_WORDS } from "./wordlist-player.js";
 import { normalizeVietnamesePhrase, parseTwoSyllablePhrase, validateDictionaryPhrase, validateChainMove } from "./wordchain-core.js";
-import { BAU_CUA_ANIMALS, calculateBauCuaResult, getDailyReward, getVietnamDateKey, buildWordChainReplyIndex, chooseWordChainReply } from "./game-core.js";
+import { BAU_CUA_ANIMALS, calculateBauCuaResult, getDailyReward, getVietnamDateKey, buildWordChainReplyIndex, chooseWordChainReply, XUXI_CHOICES, resolveXuxi } from "./game-core.js";
 const DISCORD_API = "https://discord.com/api/v10";
 const DEFAULT_EXCLUDED_CHANNELS = new Set([
   "1571762668916707399", // Staff chat
@@ -115,6 +115,23 @@ export class DiscordGateway {
     `);
     this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_game_wallets_gold ON game_wallets(gold DESC)");
     this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS vtv_rounds (
+        round_id TEXT PRIMARY KEY,
+        question_id TEXT NOT NULL,
+        correct_index INTEGER NOT NULL,
+        resolved_by TEXT,
+        created_at INTEGER NOT NULL,
+        resolved_at INTEGER
+      )
+    `);
+    this.ctx.storage.sql.exec(`
+      CREATE TABLE IF NOT EXISTS vtv_scores (
+        user_id TEXT PRIMARY KEY,
+        correct INTEGER NOT NULL DEFAULT 0,
+        attempts INTEGER NOT NULL DEFAULT 0
+      )
+    `);
+    this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS game_action_receipts (
         interaction_id TEXT PRIMARY KEY,
         user_id TEXT NOT NULL,
@@ -214,6 +231,68 @@ export class DiscordGateway {
       const title = result.matches ? "🎉 Trúng " + result.matches + " con!" : "🍃 Chưa trúng lượt này.";
       const delta = result.net > 0 ? "+" + result.net.toLocaleString("vi-VN") : result.net.toLocaleString("vi-VN");
       return Response.json({ ok: true, result, balance: nextBalance, message: "**BẦU CUA**\n" + diceText + "\n" + title + "\n💰 " + delta + " Gold · Số dư: **" + Number(nextBalance).toLocaleString("vi-VN") + " Gold**" });
+    }
+    if (url.pathname === "/games/xuxi" && request.method === "POST") {
+      const payload = await request.json();
+      const userId = String(payload.userId || "");
+      const interactionId = String(payload.interactionId || "");
+      const choice = String(payload.choice || "");
+      const amount = Number(payload.amount || 0);
+      if (!userId || !interactionId) return Response.json({ ok: false, message: "Không xác định được lượt chơi." }, { status: 400 });
+      if (this.ctx.storage.sql.exec("SELECT interaction_id FROM game_action_receipts WHERE interaction_id = ?", interactionId).toArray()[0]) return Response.json({ ok: false, message: "Lượt chơi này đã được xử lý rồi." });
+      if (!Number.isSafeInteger(amount) || amount < 0 || amount > 10000) return Response.json({ ok: false, message: "Mức cược phải từ 0 đến 10.000 Gold." });
+      const wallet = this.ctx.storage.sql.exec("SELECT gold FROM game_wallets WHERE user_id = ?", userId).toArray()[0];
+      if (Number(wallet?.gold || 0) < amount) return Response.json({ ok: false, message: "Bạn không đủ Gold. Dùng `/daily` để nhận thêm." });
+      const random = crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000;
+      const botChoice = XUXI_CHOICES[Math.floor(random * XUXI_CHOICES.length)].value;
+      const result = resolveXuxi({ choice, botChoice, amount });
+      if (!result.ok) return Response.json({ ok: false, message: "Lựa chọn Búa, Kéo hoặc Bao không hợp lệ." });
+      const now = Date.now();
+      this.ctx.storage.sql.exec("INSERT INTO game_action_receipts (interaction_id, user_id, action, created_at) VALUES (?, ?, 'xuxi', ?)", interactionId, userId, now);
+      this.ctx.storage.sql.exec(
+        "INSERT INTO game_wallets (user_id, gold, games, wins, losses, updated_at) VALUES (?, ?, 1, ?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET gold = gold + ?, games = games + 1, wins = wins + ?, losses = losses + ?, updated_at = ?",
+        userId, result.net, result.outcome === "win" ? 1 : 0, result.outcome === "loss" ? 1 : 0, now, result.net, result.outcome === "win" ? 1 : 0, result.outcome === "loss" ? 1 : 0, now
+      );
+      this.ctx.storage.sql.exec("INSERT INTO game_transactions (id, user_id, amount, reason, created_at) VALUES (?, ?, ?, 'xuxi', ?)", interactionId, userId, result.net, now);
+      const balance = this.ctx.storage.sql.exec("SELECT gold FROM game_wallets WHERE user_id = ?", userId).toArray()[0]?.gold || 0;
+      const outcomeText = result.outcome === "win" ? "🏆 Bạn thắng!" : result.outcome === "loss" ? "🤖 Bot thắng!" : "🤝 Hòa!";
+      const delta = result.net > 0 ? "+" + result.net.toLocaleString("vi-VN") : result.net.toLocaleString("vi-VN");
+      return Response.json({ ok: true, result, balance, message: "**XÙ XÌ**\nBạn: " + result.player.emoji + " " + result.player.label + " · Bot: " + result.bot.emoji + " " + result.bot.label + "\n" + outcomeText + "\n💰 " + delta + " Gold · Số dư: **" + Number(balance).toLocaleString("vi-VN") + " Gold**" });
+    }
+    if (url.pathname === "/games/vtv/create" && request.method === "POST") {
+      const payload = await request.json();
+      const roundId = String(payload.roundId || "");
+      const questionId = String(payload.questionId || "");
+      const correctIndex = Number(payload.correctIndex);
+      if (!roundId || !questionId || !Number.isInteger(correctIndex) || correctIndex < 0 || correctIndex > 3) return Response.json({ ok: false, message: "Dữ liệu câu hỏi không hợp lệ." }, { status: 400 });
+      const now = Date.now();
+      this.ctx.storage.sql.exec("DELETE FROM vtv_rounds WHERE created_at < ?", now - 86400000);
+      this.ctx.storage.sql.exec("INSERT OR REPLACE INTO vtv_rounds (round_id, question_id, correct_index, resolved_by, created_at, resolved_at) VALUES (?, ?, ?, NULL, ?, NULL)", roundId, questionId, correctIndex, now);
+      return Response.json({ ok: true });
+    }
+    if (url.pathname === "/games/vtv/answer" && request.method === "POST") {
+      const payload = await request.json();
+      const userId = String(payload.userId || "");
+      const roundId = String(payload.roundId || "");
+      const interactionId = String(payload.interactionId || "");
+      const choiceIndex = Number(payload.choiceIndex);
+      if (!userId || !roundId || !interactionId || !Number.isInteger(choiceIndex) || choiceIndex < 0 || choiceIndex > 3) return Response.json({ ok: false, message: "Câu trả lời không hợp lệ." }, { status: 400 });
+      if (this.ctx.storage.sql.exec("SELECT interaction_id FROM game_action_receipts WHERE interaction_id = ?", interactionId).toArray()[0]) return Response.json({ ok: false, status: "duplicate", message: "Lượt trả lời này đã được xử lý." });
+      const round = this.ctx.storage.sql.exec("SELECT question_id, correct_index, resolved_by FROM vtv_rounds WHERE round_id = ?", roundId).toArray()[0];
+      if (!round) return Response.json({ ok: false, status: "missing", message: "Câu hỏi không còn khả dụng." });
+      if (round.resolved_by) return Response.json({ ok: false, status: "resolved", message: "Câu hỏi đã có người trả lời đúng." });
+      const now = Date.now();
+      this.ctx.storage.sql.exec("INSERT INTO game_action_receipts (interaction_id, user_id, action, created_at) VALUES (?, ?, 'vtv-answer', ?)", interactionId, userId, now);
+      const correct = choiceIndex === Number(round.correct_index);
+      this.ctx.storage.sql.exec("INSERT INTO vtv_scores (user_id, correct, attempts) VALUES (?, ?, 1) ON CONFLICT(user_id) DO UPDATE SET attempts = attempts + 1, correct = correct + ?", userId, correct ? 1 : 0, correct ? 1 : 0);
+      if (!correct) return Response.json({ ok: true, correct: false, status: "wrong", message: "Chưa đúng rồi, thử lựa chọn khác nhé!" });
+      this.ctx.storage.sql.exec("UPDATE vtv_rounds SET resolved_by = ?, resolved_at = ? WHERE round_id = ? AND resolved_by IS NULL", userId, now, roundId);
+      return Response.json({ ok: true, correct: true, status: "correct", questionId: String(round.question_id), answerIndex: Number(round.correct_index), message: "🎉 <@" + userId + "> trả lời chính xác!" });
+    }
+    if (url.pathname === "/games/vtv/leaderboard" && request.method === "GET") {
+      const rows = this.ctx.storage.sql.exec("SELECT user_id, correct, attempts FROM vtv_scores ORDER BY correct DESC, attempts ASC LIMIT 20").toArray();
+      if (!rows.length) return Response.json({ ok: true, message: "Bảng xếp hạng Vua Tiếng Việt chưa có dữ liệu." });
+      return Response.json({ ok: true, message: "🏆 **VUA TIẾNG VIỆT · TOP 20**\n" + rows.map((row, index) => (index + 1) + ". <@" + row.user_id + "> · **" + row.correct + " đúng** · " + row.attempts + " lượt").join("\n") });
     }
     if (url.pathname === "/games/balance" && request.method === "GET") {
       const userId = String(url.searchParams.get("userId") || "");

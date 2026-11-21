@@ -1,5 +1,6 @@
 import { DiscordGateway } from "./gateway.js";
 import { handleVoiceCommand } from "./voice.js";
+import { createVtvRound, VTV_QUESTIONS } from "./vtv-questions.js";
 
 export { DiscordGateway };
 
@@ -193,7 +194,8 @@ function helpPanel(category = "games") {
         { name: "Nối từ", value: "Gửi cụm gồm **2 tiếng**. Tiếng đầu phải khớp với tiếng cuối của lượt trước. Không lặp cụm và không đi hai lượt liên tiếp. Mỗi lượt có 30 giây.", inline: false },
         { name: "Lệnh", value: "`/noitu start` mở ván · `/noitu end` kết thúc · `/noitu score` xem bảng xếp hạng", inline: false },
         { name: "Hồ sơ & từ điển", value: "`/nme` hồ sơ · `/nrank` bảng xếp hạng · `/de-xuat-tu` đề xuất cụm còn thiếu · `/them-tu` thêm từ (Admin) · `/duyet-tu` duyệt (Admin)", inline: false },
-        { name: "Gold & mini game", value: "`/daily` nhận Gold · `/ngold` xem số dư · `/grank` bảng xếp hạng · `/baucua` chơi Bầu Cua", inline: false }
+        { name: "Gold & mini game", value: "`/daily` nhận Gold · `/ngold` số dư · `/grank` top Gold · `/baucua` Bầu Cua · `/xu-xi` Kéo Búa Bao", inline: false },
+        { name: "Đố vui", value: "`/vtv` Vua Tiếng Việt · `/vtvrank` bảng xếp hạng · `/ncf` tung xu · `/ntxx` xúc xắc", inline: false }
       ]
     },
     community: {
@@ -522,12 +524,65 @@ async function handleInteraction(interaction, env, ctx) {
       return ephemeral((await result.json()).message || "Chưa thể chơi Bầu Cua lúc này.");
     }
 
-    if (command === "coinflip") {
+    if (command === "xu-xi") {
+      const userId = String(interaction.member?.user?.id || interaction.user?.id || "");
+      const choice = String(optionValue(interaction, "choice") || "");
+      const amount = Number(optionValue(interaction, "amount") || 0);
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/games/xuxi", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ userId, choice, amount, interactionId: String(interaction.id || "") })
+      });
+      return ephemeral((await result.json()).message || "Chưa thể chơi Xù Xì lúc này.");
+    }
+
+    if (command === "vtv") {
+      const question = createVtvRound(crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000);
+      const roundId = String(interaction.id || crypto.randomUUID());
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const created = await gateway.fetch("https://gateway/games/vtv/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roundId, questionId: question.id, correctIndex: question.answer })
+      });
+      if (!created.ok) return ephemeral("Không thể tạo câu hỏi lúc này. Thử lại nhé.");
+      const components = [{
+        type: 1,
+        components: question.options.map((label, index) => ({
+          type: 2,
+          style: 2,
+          label,
+          custom_id: "vtv:" + roundId + ":" + index
+        }))
+      }];
+      return json({
+        type: 4,
+        data: {
+          embeds: [{
+            color: COLORS.accent,
+            title: "Vua Tiếng Việt",
+            description: question.prompt,
+            footer: { text: "Ai trả lời đúng đầu tiên sẽ ghi điểm." }
+          }],
+          components,
+          allowed_mentions: { parse: [] }
+        }
+      });
+    }
+
+    if (command === "vtvrank") {
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/games/vtv/leaderboard");
+      return ephemeral((await result.json()).message || "Chưa có bảng xếp hạng Vua Tiếng Việt.");
+    }
+
+    if (command === "coinflip" || command === "ncf") {
       const result = crypto.getRandomValues(new Uint8Array(1))[0] % 2 === 0 ? "🪙 **Heads**" : "🪙 **Tails**";
       return ephemeral(result);
     }
 
-    if (command === "roll") {
+    if (command === "roll" || command === "ntxx") {
       const sides = Number(optionValue(interaction, "sides") || 6);
       if (!Number.isInteger(sides) || sides < 2 || sides > 1000) return ephemeral("Số mặt xúc xắc phải từ 2 đến 1.000.");
       const bytes = new Uint32Array(1);
@@ -774,6 +829,40 @@ async function handleInteraction(interaction, env, ctx) {
 
   if (interaction.type === 3) {
     const customId = interaction.data?.custom_id || "";
+    if (customId.startsWith("vtv:")) {
+      const parts = customId.split(":");
+      const roundId = parts[1] || "";
+      const choiceIndex = Number(parts[2]);
+      const userId = String(interaction.member?.user?.id || interaction.user?.id || "");
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const result = await gateway.fetch("https://gateway/games/vtv/answer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ roundId, choiceIndex, userId, interactionId: String(interaction.id || "") })
+      });
+      const answer = await result.json();
+      if (answer.correct) {
+        return json({
+          type: 7,
+          data: {
+            content: answer.message + "\n**Đáp án:** " + (VTV_QUESTIONS.find(item => item.id === answer.questionId)?.options[answer.answerIndex] || "Đã ghi nhận") + "\n" + (VTV_QUESTIONS.find(item => item.id === answer.questionId)?.explanation || "") ,
+            embeds: [],
+            components: [{
+              type: 1,
+              components: [{
+                type: 2,
+                style: 2,
+                label: "Đã có người trả lời đúng",
+                custom_id: "vtv:closed",
+                disabled: true
+              }]
+            }],
+            allowed_mentions: { parse: [] }
+          }
+        });
+      }
+      return ephemeral(answer.message || "Câu hỏi đã kết thúc hoặc câu trả lời chưa đúng.");
+    }
     if (customId === "help_category") {
       const category = interaction.data?.values?.[0] || "games";
       return json({ type: 7, data: helpPanel(category) });

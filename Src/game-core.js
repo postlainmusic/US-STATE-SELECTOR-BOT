@@ -63,3 +63,20 @@ export function chooseWordChainReply(index, currentTail, usedWords = [], randomV
   const safeRandom = Math.max(0, Math.min(0.999999999, Number(randomValue) || 0));
   return candidates[Math.floor(safeRandom * candidates.length)];
 }
+
+export const XUXI_CHOICES = Object.freeze([
+  { value: "bua", label: "Búa", emoji: "🪨", beats: "keo" },
+  { value: "keo", label: "Kéo", emoji: "✂️", beats: "bao" },
+  { value: "bao", label: "Bao", emoji: "📄", beats: "bua" }
+]);
+
+export function resolveXuxi({ choice, botChoice, amount = 0 }) {
+  const player = XUXI_CHOICES.find(item => item.value === String(choice));
+  const bot = XUXI_CHOICES.find(item => item.value === String(botChoice));
+  const bet = Number(amount);
+  if (!player || !bot) return { ok: false, code: "invalid_choice" };
+  if (!Number.isSafeInteger(bet) || bet < 0 || bet > 10000) return { ok: false, code: "invalid_amount" };
+  const outcome = player.value === bot.value ? "tie" : player.beats === bot.value ? "win" : "loss";
+  const net = outcome === "win" ? bet : outcome === "loss" ? -bet : 0;
+  return { ok: true, player, bot, amount: bet, outcome, net };
+}

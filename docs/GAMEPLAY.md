@@ -9,7 +9,7 @@ A small, readable game hub for the Discord server. All balances are virtual Gold
 | `/daily` | Claim the daily Gold reward. |
 | `/ngold` | View Gold balance, daily streak and mini-game record. |
 | `/grank` | View the Gold leaderboard. |
-| `/baucua animal amount` | Bet virtual Gold on one of six Bầu Cua animals. |
+| `/baucua animal amount` | Bet virtual Gold on one of six Bầu Cua animals. |\n| `/xu-xi choice amount` | Play rock-paper-scissors against the bot, optionally betting Gold. |\n| `/vtv` | Start a multiple-choice Vietnamese language quiz. The first correct answer wins the round. |\n| `/vtvrank` | View the Vietnamese quiz leaderboard. |\n| `/ncf` / `/ntxx` | Coin flip and dice roll aliases. |
 | `/noitu start` | Start a Vietnamese word-chain round in the configured game channel. A valid phrase also starts a round automatically. |
 | `/noitu end` | End a round (starter or administrator). |
 | `/noitu score` | View the word-chain leaderboard. |
@@ -50,3 +50,18 @@ Wallets, daily claims, game records and transaction receipts are stored in the e
 - If a member submits a phrase missing from the accepted data, the message is removed and the member receives a private explanation. They can use `/de-xuat-tu`; an administrator reviews it before acceptance.
 - A wrong chain or repeated phrase loses the current round. The 30-second timer remains active.
 - Dictionary matching is evidence-based, not a claim that a finite corpus contains every valid Vietnamese proper noun or colloquial phrase.
+
+## Xù Xì
+
+- Choose Búa, Kéo or Bao against the bot.
+- The command is free when the Gold amount is 0.
+- An optional 1:1 virtual Gold wager is supported, from 0 to 10,000 Gold.
+- A win earns the same amount as profit, a loss deducts the stake, and a tie returns the stake.
+
+## Vua Tiếng Việt
+
+- A question appears with four answer buttons.
+- The first correct answer closes the round and earns one point.
+- Incorrect answers remain available for another attempt.
+- Scores and attempts are saved in Durable Object SQLite.
+- The question bank is a curated starter set and can be expanded independently.

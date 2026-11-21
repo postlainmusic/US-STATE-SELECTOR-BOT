@@ -26,6 +26,7 @@ jobs:
           npm install --prefix voice-engine --omit=dev --no-audit --no-fund
           node --check Src/index.js
           node --check Src/gateway.js
+          node --check Src/wordchain-core.js
           node --check Src/support/engine.js
           node --check scripts/register-commands.js
           node --check Src/voice.js

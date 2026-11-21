@@ -140,17 +140,22 @@ async function updateMemberState(env, guildId, userId, selectedState) {
   });
 }
 
-async function editInteractionResponse(env, interaction, content) {
+async function editInteractionPayload(env, interaction, payload) {
   const url = `${API}/webhooks/${env.DISCORD_APPLICATION_ID}/${interaction.token}/messages/@original`;
   const response = await fetch(url, {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ content, allowed_mentions: { parse: [] } })
+    body: JSON.stringify({ ...payload, allowed_mentions: { parse: [] } })
   });
   if (!response.ok) {
     const body = await response.text();
     console.error("Could not edit interaction response:", response.status, body);
+    throw new Error(`Interaction response update failed: ${response.status}`);
   }
+}
+
+async function editInteractionResponse(env, interaction, content) {
+  return editInteractionPayload(env, interaction, { content });
 }
 
 function isManageRoles(interaction) {
@@ -186,6 +191,7 @@ function avatarUrl(user) {
 
 async function setChannelLock(env, channelId, guildId, locked) {
   const channel = await discord(`/channels/${channelId}`, env);
+  if (![0, 5].includes(Number(channel.type))) throw new Error("Lock/unlock currently supports text and announcement channels only.");
   const overwrites = Array.isArray(channel.permission_overwrites) ? channel.permission_overwrites : [];
   const current = overwrites.find(item => item.id === guildId && Number(item.type) === 0);
   if (!current && !locked) return false;
@@ -355,10 +361,7 @@ async function handleInteraction(interaction, env, ctx) {
             thumbnail: guild.icon ? { url: `https://cdn.discordapp.com/icons/${guild.id}/${guild.icon}.png?size=256` } : undefined,
             footer: { text: `Server ID: ${guild.id}` }
           };
-          await editInteractionResponse(env, interaction, " "); 
-          const hook = `${API}/webhooks/${env.DISCORD_APPLICATION_ID}/${interaction.token}/messages/@original`;
-          const response = await fetch(hook, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: null, embeds: [embed], allowed_mentions: { parse: [] } }) });
-          if (!response.ok) console.error("Server info response failed:", response.status, (await response.text()).slice(0, 300));
+          await editInteractionPayload(env, interaction, { content: null, embeds: [embed] });
         } catch (error) {
           console.error("Server info failed:", error);
           await editInteractionResponse(env, interaction, "Không lấy được thông tin server. Thử lại sau nhé.");
@@ -401,9 +404,7 @@ async function handleInteraction(interaction, env, ctx) {
             ],
             footer: { text: "POSTLAIN Member Card" }
           };
-          const hook = `${API}/webhooks/${env.DISCORD_APPLICATION_ID}/${interaction.token}/messages/@original`;
-          const response = await fetch(hook, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ content: null, embeds: [embed], allowed_mentions: { parse: [] } }) });
-          if (!response.ok) throw new Error(`User info response failed: ${response.status}`);
+          await editInteractionPayload(env, interaction, { content: null, embeds: [embed] });
         } catch (error) {
           console.error("Member lookup failed:", error);
           await editInteractionResponse(env, interaction, "Không tìm được thành viên này trong server.");

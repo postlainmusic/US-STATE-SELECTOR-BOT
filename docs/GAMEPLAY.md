@@ -10,12 +10,12 @@ A small, readable game hub for the Discord server. All balances are virtual Gold
 | `/ngold` | View Gold balance, daily streak and mini-game record. |
 | `/grank` | View the Gold leaderboard. |
 | `/baucua animal amount` | Bet virtual Gold on one of six Bầu Cua animals. |
-| `/noitu start` | Start a Vietnamese word-chain round in the configured game channel. |
+| `/noitu start` | Start a Vietnamese word-chain round in the configured game channel. A valid phrase also starts a round automatically. |
 | `/noitu end` | End a round (starter or administrator). |
 | `/noitu score` | View the word-chain leaderboard. |
 | `/nme` | View a word-chain profile. |
 | `/nrank` | View the word-chain leaderboard. |
-| `/them-tu` | Add a verified two-syllable phrase (administrator only). |
+| `/de-xuat-tu` | Suggest a missing two-syllable phrase for review. |\n| `/duyet-tu` / `/tu-choi-tu` | Review a community suggestion (administrator only). |\n| `/them-tu` | Add a verified two-syllable phrase (administrator only). |
 
 ## Daily rewards
 
@@ -40,3 +40,13 @@ A small, readable game hub for the Discord server. All balances are virtual Gold
 ## Data and reliability
 
 Wallets, daily claims, game records and transaction receipts are stored in the existing Durable Object SQLite database. No external paid AI API is required. Existing role selector, moderation, notifications, support routing and voice commands remain separate from this game module.
+
+## Word-chain opponent
+
+- The game alternates between a member and the bot: member phrase → bot phrase → next member phrase.
+- Every accepted move is exactly two syllables and must connect to the final syllable of the previous move.
+- The bot chooses a non-repeated reply from the bundled Vietnamese phrase datasets. It does not call a paid AI model.
+- If the bot has no unused dictionary reply, the member who made the last valid move wins.
+- If a member submits a phrase missing from the accepted data, the message is removed and the member receives a private explanation. They can use `/de-xuat-tu`; an administrator reviews it before acceptance.
+- A wrong chain or repeated phrase loses the current round. The 30-second timer remains active.
+- Dictionary matching is evidence-based, not a claim that a finite corpus contains every valid Vietnamese proper noun or colloquial phrase.

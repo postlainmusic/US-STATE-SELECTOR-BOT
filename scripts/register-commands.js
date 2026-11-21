@@ -51,10 +51,7 @@ const commands = [
         required: true
       }]
     }]
-  }
-];
-
-
+  },
   {
     name: "help",
     description: "Show the POSTLAIN community bot guide",
@@ -163,7 +160,8 @@ const commands = [
     description: "Restore @everyone message access in this channel",
     default_member_permissions: "16",
     dm_permission: false
-  },
+  }
+];
 
 const endpoint = `https://discord.com/api/v10/applications/${appId}/guilds/${guildId}/commands`;
 const response = await fetch(endpoint, {

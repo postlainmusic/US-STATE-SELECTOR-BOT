@@ -183,24 +183,26 @@ const commands = [
     dm_permission: false
   },
   {
-    name: "mayman",
-    description: "Thử vận may với tỷ lệ thắng 48%",
-    dm_permission: false,
-    options: [{
-      type: 4,
-      name: "amount",
-      description: "Gold cược (10-10.000)",
-      required: true,
-      min_value: 10,
-      max_value: 10000
-    }]
+    name: "dao-mo",
+    description: "Đào mỏ kiếm Gold, hồi lượt 30 phút",
+    dm_permission: false
   },
   {
-    name: "baucua",
-    description: "Chơi Bầu Cua bằng Gold ảo",
-    dm_permission: false,
-    options: [
-      {
+    name: "cau-ca",
+    description: "Câu cá kiếm Gold, hồi lượt 20 phút",
+    dm_permission: false
+  },
+  {
+    name: "lam-vuon",
+    description: "Thu hoạch nông sản kiếm Gold, hồi lượt 4 giờ",
+    dm_permission: false
+  },
+  {
+    name: "tham-hiem",
+    description: "Thám hiểm tìm chiến lợi phẩm, hồi lượt 2 giờ",
+    dm_permission: false
+  },
+  {
         type: 3,
         name: "animal",
         description: "Chọn một cửa",

@@ -44,12 +44,22 @@ const commands = [
       type: 1,
       name: "send",
       description: "Send a notification / Gửi thông báo",
-      options: [{
-        type: 3,
-        name: "message",
-        description: "Notification text / Nội dung thông báo",
-        required: true
-      }]
+      options: [
+        {
+          type: 7,
+          name: "channel",
+          description: "Choose the destination text channel / Chọn phòng nhận",
+          required: true,
+          channel_types: [0, 5]
+        },
+        {
+          type: 3,
+          name: "message",
+          description: "Notification text / Nội dung thông báo",
+          required: true,
+          max_length: 2000
+        }
+      ]
     }]
   },
   {

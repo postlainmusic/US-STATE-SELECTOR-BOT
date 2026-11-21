@@ -58,6 +58,10 @@ export class DiscordGateway {
     this.sessionId = null;
     this.resumeUrl = null;
     this.lastError = null;
+    this.lastGatewayPacketAt = null;
+    this.lastGatewayEvent = null;
+    this.lastCloseCode = null;
+    this.lastCloseReason = null;
     this.channelNames = new Map();
     this.channelParents = new Map();
     this.lastMentionReplyAt = new Map();
@@ -87,12 +91,19 @@ export class DiscordGateway {
     }
     if (url.pathname === "/status") {
       const count = this.ctx.storage.sql.exec("SELECT COUNT(*) AS count FROM community_messages").toArray()[0]?.count || 0;
+      const socketState = this.ws?.readyState;
+      const state = socketState === WebSocket.OPEN ? "connected" : socketState === WebSocket.CONNECTING ? "connecting" : "disconnected";
       return Response.json({
         ok: true,
-        state: this.ws?.readyState === WebSocket.OPEN ? "connected" : "disconnected",
+        state,
+        socketReadyState: socketState ?? null,
         storedMessages: count,
         guildId: this.env.DISCORD_GUILD_ID,
         lastError: this.lastError,
+        lastGatewayPacketAt: this.lastGatewayPacketAt,
+        lastGatewayEvent: this.lastGatewayEvent,
+        lastCloseCode: this.lastCloseCode,
+        lastCloseReason: this.lastCloseReason,
         hasBotToken: Boolean(this.env.DISCORD_BOT_TOKEN)
       });
     }
@@ -139,12 +150,20 @@ export class DiscordGateway {
       this.ws = ws;
       this.lastError = null;
 
+      ws.addEventListener("open", () => console.log("Discord Gateway WebSocket transport opened."));
       ws.addEventListener("message", event => {
         let packet;
-        try { packet = JSON.parse(event.data); } catch { return; }
-        this.ctx.waitUntil(
-          this.handlePacket(packet).catch(error => console.error("Gateway packet error:", error))
-        );
+        try { packet = JSON.parse(event.data); } catch (error) {
+          this.lastError = "Received an invalid JSON packet from Discord Gateway.";
+          console.error(this.lastError);
+          return;
+        }
+        this.lastGatewayPacketAt = new Date().toISOString();
+        this.lastGatewayEvent = packet.t || ("OP_" + packet.op);
+        this.ctx.waitUntil(this.handlePacket(packet).catch(error => {
+          this.lastError = String(error?.message || error).slice(0, 300);
+          console.error("Gateway packet error:", this.lastError, error?.stack || "");
+        }));
       });
       ws.addEventListener("close", event => {
         this.clearHeartbeat();
@@ -155,10 +174,16 @@ export class DiscordGateway {
           this.resumeUrl = null;
           this.persistSession();
         }
+        this.lastCloseCode = event.code;
+        this.lastCloseReason = String(event.reason || "").slice(0, 200);
+        this.lastError = "Discord Gateway closed (" + event.code + "): " + (this.lastCloseReason || "no reason provided");
         console.warn("Discord Gateway closed:", event.code, event.reason);
         this.ctx.waitUntil(this.ctx.storage.setAlarm(Date.now() + 7000));
       });
-      ws.addEventListener("error", error => console.error("Discord Gateway socket error:", error));
+      ws.addEventListener("error", error => {
+        this.lastError = String(error?.message || "WebSocket transport error").slice(0, 300);
+        console.error("Discord Gateway socket error:", this.lastError);
+      });
       // Rotate before Cloudflare's 15-minute outbound-connection keepalive window.
       await this.ctx.storage.setAlarm(Date.now() + 13 * 60 * 1000);
     } catch (error) {

@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BAU_CUA_ANIMALS, calculateBauCuaResult, getDailyReward, getVietnamDateKey, getRankLabel, buildWordChainReplyIndex, chooseWordChainReply } from "../Src/game-core.js";
+import { BAU_CUA_ANIMALS, calculateBauCuaResult, getDailyReward, getVietnamDateKey, getRankLabel, buildWordChainReplyIndex, chooseWordChainReply, resolveXuxi } from "../Src/game-core.js";
 
 test("daily reward grows with consecutive check-ins and is capped", () => {
   assert.equal(getDailyReward(1), 350);
@@ -44,4 +44,12 @@ test("bot never repeats a phrase already used in the current round", () => {
   const index = buildWordChainReplyIndex(["đồ chơi", "đồ ăn"]);
   assert.equal(chooseWordChainReply(index, "đồ", ["đồ chơi"], 0), "đồ ăn");
   assert.equal(chooseWordChainReply(index, "đồ", ["đồ chơi", "đồ ăn"]), null);
+});
+
+test("xu-xi resolves rock paper scissors and virtual stakes", () => {
+  assert.equal(resolveXuxi({ choice: "bua", botChoice: "keo", amount: 100 }).outcome, "win");
+  assert.equal(resolveXuxi({ choice: "bua", botChoice: "bao", amount: 100 }).net, -100);
+  assert.equal(resolveXuxi({ choice: "bao", botChoice: "bao", amount: 100 }).net, 0);
+  assert.equal(resolveXuxi({ choice: "keo", botChoice: "bao", amount: 0 }).net, 0);
+  assert.equal(resolveXuxi({ choice: "dragon", botChoice: "bao", amount: 100 }).code, "invalid_choice");
 });

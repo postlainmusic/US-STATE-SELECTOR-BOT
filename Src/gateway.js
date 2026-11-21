@@ -461,6 +461,25 @@ export class DiscordGateway {
       }
     } catch (error) {
       console.error("POSTLAIN AI mention handler failed:", String(error?.message || error), error?.stack || "");
+      try {
+        const fallback = await fetch(`${DISCORD_API}/channels/${message.channel_id}/messages`, {
+          method: "POST",
+          headers: {
+            Authorization: `Bot ${this.env.DISCORD_BOT_TOKEN}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            content: "Tao đã nhận được câu hỏi, nhưng phần AI đang gặp lỗi tạm thời nên chưa trả lời được. Mày thử gửi lại sau ít phút nhé.",
+            message_reference: { message_id: message.id, fail_if_not_exists: false },
+            allowed_mentions: { parse: [] }
+          })
+        });
+        if (!fallback.ok) {
+          console.error("POSTLAIN AI fallback reply failed:", fallback.status, (await fallback.text()).slice(0, 300));
+        }
+      } catch (fallbackError) {
+        console.error("POSTLAIN AI fallback delivery failed:", String(fallbackError?.message || fallbackError));
+      }
     }
   }
 }

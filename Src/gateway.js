@@ -321,7 +321,11 @@ export class DiscordGateway {
       this.ctx.storage.sql.exec("INSERT INTO vtv_scores (user_id, correct, attempts) VALUES (?, ?, 1) ON CONFLICT(user_id) DO UPDATE SET attempts = attempts + 1, correct = correct + ?", userId, correct ? 1 : 0, correct ? 1 : 0);
       if (!correct) return Response.json({ ok: true, correct: false, status: "wrong", message: "Chưa đúng rồi, thử lựa chọn khác nhé!" });
       this.ctx.storage.sql.exec("UPDATE vtv_rounds SET resolved_by = ?, resolved_at = ? WHERE round_id = ? AND resolved_by IS NULL", userId, now, roundId);
-      return Response.json({ ok: true, correct: true, status: "correct", questionId: String(round.question_id), answerIndex: Number(round.correct_index), message: "🎉 <@" + userId + "> trả lời chính xác!" });
+      const reward = 2500;
+      this.ctx.storage.sql.exec("INSERT INTO game_wallets (user_id, gold, updated_at) VALUES (?, ?, ?) ON CONFLICT(user_id) DO UPDATE SET gold = gold + excluded.gold, updated_at = excluded.updated_at", userId, reward, now);
+      this.ctx.storage.sql.exec("INSERT INTO game_transactions (id, user_id, amount, reason, created_at) VALUES (?, ?, ?, 'vtv-correct', ?)", "vtv:" + interactionId, userId, reward, now);
+      const balance = Number(this.ctx.storage.sql.exec("SELECT gold FROM game_wallets WHERE user_id = ?", userId).toArray()[0]?.gold || 0);
+      return Response.json({ ok: true, correct: true, status: "correct", questionId: String(round.question_id), answerIndex: Number(round.correct_index), reward, balance, message: "🎉 <@" + userId + "> trả lời chính xác! **+" + reward.toLocaleString("vi-VN") + " Gold**" });
     }
     if (url.pathname === "/games/vtv/leaderboard" && request.method === "GET") {
       const rows = this.ctx.storage.sql.exec("SELECT user_id, correct, attempts FROM vtv_scores ORDER BY correct DESC, attempts ASC LIMIT 20").toArray();

@@ -18,9 +18,36 @@ export function getVietnamDateKey(timestamp = Date.now()) {
   return values.year + "-" + values.month + "-" + values.day;
 }
 
-export function getDailyReward(streak) {
-  const safeStreak = Math.max(1, Math.floor(Number(streak) || 1));
-  return Math.min(1000, 350 + (safeStreak - 1) * 50);
+export function getDailyReward(_streak) {
+  return 100000;
+}
+
+export function rollBauCuaDice(animal, random = Math.random) {
+  const selected = BAU_CUA_ANIMALS.find(item => item.value === String(animal));
+  if (!selected) return null;
+  const wins = Number(random()) < 0.48;
+  const others = BAU_CUA_ANIMALS.filter(item => item.value !== selected.value);
+  const dice = [];
+  if (wins) {
+    const hitIndex = Math.floor(Math.max(0, Math.min(0.999999999, Number(random()) || 0)) * 3);
+    for (let i = 0; i < 3; i++) {
+      const pool = i === hitIndex ? [selected] : BAU_CUA_ANIMALS;
+      dice.push(pool[Math.floor(Math.max(0, Math.min(0.999999999, Number(random()) || 0)) * pool.length)].value);
+    }
+    if (!dice.includes(selected.value)) dice[hitIndex] = selected.value;
+  } else {
+    for (let i = 0; i < 3; i++) dice.push(others[Math.floor(Math.max(0, Math.min(0.999999999, Number(random()) || 0)) * others.length)].value);
+  }
+  return dice;
+}
+
+export function chooseXuxiBotChoice(choice, random = Math.random) {
+  const player = XUXI_CHOICES.find(item => item.value === String(choice));
+  if (!player) return null;
+  const playerWins = Number(random()) < 0.48;
+  return playerWins
+    ? XUXI_CHOICES.find(item => item.value === player.beats)
+    : XUXI_CHOICES.find(item => item.beats === player.value);
 }
 
 export function calculateBauCuaResult({ animal, amount, dice }) {
@@ -34,7 +61,7 @@ export function calculateBauCuaResult({ animal, amount, dice }) {
     return { ok: false, code: "invalid_dice" };
   }
   const matches = dice.filter(value => value === selected.value).length;
-  const payout = matches ? bet * (matches + 1) : 0;
+  const payout = matches ? bet * 2 : 0;
   return { ok: true, animal: selected, amount: bet, dice: [...dice], matches, payout, net: payout - bet };
 }
 

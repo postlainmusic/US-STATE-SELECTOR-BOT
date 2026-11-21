@@ -190,7 +190,7 @@ async function handleKnowledgeCommand(interaction, env) {
   }
   if (subcommand === "list") {
     const messages = await discord(`/channels/${env.KNOWLEDGE_CHANNEL_ID}/messages?limit=100`, env);
-    const entries = messages.filter(isKnowledgeEntry).slice(0, 15);
+    const entries = messages.filter(message => isKnowledgeEntry(message, env)).slice(0, 15);
     const lines = entries.map(message => { const topic = message.embeds[0].fields?.find(field => field.name === "Topic")?.value || "General"; return `• **${topic}** · ID: \`${message.id}\``; });
     return json({ type: 4, data: { content: lines.length ? `**POSTLAIN KNOWLEDGE · ${lines.length} mục gần nhất**\n${lines.join("\n")}` : "Chưa có kiến thức nào được lưu.", flags: 64 } });
   }

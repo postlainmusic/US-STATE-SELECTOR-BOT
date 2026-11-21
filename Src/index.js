@@ -323,7 +323,7 @@ async function handleInteraction(interaction, env, ctx) {
             })
           });
           const channelLabel = destination.name ? `#${destination.name}` : `<#${destinationId}>`;
-          await editInteractionResponse(env, interaction, `✅ Đã gửi thông báo thành công đến **${channelLabel}**.\n\n<#{destinationId}>`);
+          await editInteractionResponse(env, interaction, `✅ Đã gửi thông báo thành công đến **${channelLabel}**.\n\n<#${destinationId}>`);
         } catch (error) {
           console.error("Notification relay failed:", error);
           const detail = String(error?.message || error);

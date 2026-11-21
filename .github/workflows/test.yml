@@ -23,4 +23,8 @@ jobs:
       - name: Run tests
         run: |
           npm install
+          node --check Src/index.js
+          node --check Src/gateway.js
+          node --check Src/support/engine.js
+          node --check scripts/register-commands.js
           npm test

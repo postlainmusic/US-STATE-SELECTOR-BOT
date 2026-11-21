@@ -9,6 +9,13 @@ if (!appId || !botToken || !guildId) {
 
 const commands = [
   {
+    name: "gamepanel",
+    description: "Đăng bảng chọn trò chơi POSTLAIN",
+    default_member_permissions: "8",
+    dm_permission: false,
+    options: [{ type: 1, name: "publish", description: "Đăng Game Hub vào kênh hiện tại" }]
+  },
+  {
     name: "statepanel",
     description: "Publish the U.S. State Selector panel",
     default_member_permissions: "268435456",

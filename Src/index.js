@@ -204,7 +204,7 @@ function helpPanel(category = "games") {
       fields: [
         { name: "Thông tin", value: "`/ping` · `/nserver` · `/serverinfo` · `/userinfo` · `/avatar`", inline: false },
         { name: "Tương tác", value: "`/report send` · `/poll create` · `/coinflip` · `/roll` · `/choose`", inline: false },
-        { name: "Vai trò & góp ý", value: "`/statepanel publish` · `/feedback send`", inline: false }
+        { name: "Vai trò & góp ý", value: "`/statepanel publish` · `/feedback send` · `/gamepanel publish` (Admin)", inline: false }
       ]
     },
     voice: {
@@ -251,6 +251,71 @@ function helpPanel(category = "games") {
         ]
       }]
     }]
+  };
+}
+
+
+const GAME_HUB_ITEMS = {
+  wordchain: { label: "Nối từ", emoji: "🔗", description: "Đấu nối từ tiếng Việt với POSTLAIN. Mỗi lượt 2 tiếng, bot tự đáp lại.", instructions: "Vào <#1573644570997035100> rồi gửi cụm 2 tiếng. Bot sẽ nối tiếp và trả lượt lại cho bạn. Mỗi lượt có 30 giây.", command: "`/noitu start` · `/noitu end` · `/noitu score`", launch: "wordchain" },
+  baucua: { label: "Bầu Cua", emoji: "🦀", description: "Chọn cửa, đặt Gold ảo và thử vận may với ba viên xúc xắc.", instructions: "Chọn một trong sáu linh vật và mức cược. Gold chỉ dùng trong server, không có giá trị tiền thật.", command: "`/baucua animal amount` · `/ngold` · `/daily`" },
+  xuxi: { label: "Kéo Búa Bao", emoji: "✊", description: "Đối đầu POSTLAIN bằng Kéo, Búa hoặc Bao.", instructions: "Chọn nước đi và có thể cược Gold ảo. Không cược thì chơi miễn phí.", command: "`/xu-xi choice amount`" },
+  vtv: { label: "Vua Tiếng Việt", emoji: "📚", description: "Trả lời câu hỏi tiếng Việt trắc nghiệm. Ai đúng đầu tiên sẽ ghi điểm.", instructions: "Một câu hỏi, bốn lựa chọn. Bấm đáp án ngay trên câu hỏi để ghi điểm.", command: "`/vtv` · `/vtvrank`", launch: "vtv" },
+  daily: { label: "Điểm danh", emoji: "🎁", description: "Nhận Gold mỗi ngày và tăng thưởng theo chuỗi điểm danh.", instructions: "Mỗi ngày nhận một lần. Duy trì chuỗi ngày liên tiếp để tăng phần thưởng.", command: "`/daily` · `/ngold` · `/grank`", launch: "daily" },
+  party: { label: "Trò nhanh", emoji: "🎲", description: "Tung xu, xúc xắc hoặc chọn ngẫu nhiên.", instructions: "Dùng các lệnh nhanh để tung xu, gieo xúc xắc hoặc nhờ bot chọn giúp.", command: "`/ncf` · `/ntxx` · `/choose`" }
+};
+
+function gameHubPanel() {
+  return {
+    embeds: [{
+      color: COLORS.background,
+      title: "🎮  GAME HUB",
+      description: "Chọn trò bạn muốn chơi. Mỗi trò có hướng dẫn và cách bắt đầu riêng.\n\n**6 hoạt động · 1 điểm đến · Gold ảo dùng trong server**",
+      fields: [
+        { name: "🔗 Nối từ", value: "Đấu nối từ cùng POSTLAIN trong phòng game.", inline: true },
+        { name: "🦀 Bầu Cua", value: "Đặt Gold ảo, thử vận may.", inline: true },
+        { name: "✊ Kéo Búa Bao", value: "Đối đầu bot, cược hoặc chơi vui.", inline: true },
+        { name: "📚 Vua Tiếng Việt", value: "Đố vui trắc nghiệm tính điểm.", inline: true },
+        { name: "🎁 Điểm danh", value: "Nhận Gold và tích chuỗi ngày.", inline: true },
+        { name: "🎲 Trò nhanh", value: "Tung xu, xúc xắc, chọn ngẫu nhiên.", inline: true }
+      ],
+      footer: { text: "POSTLAIN GAMES  ·  Chọn một trò ở menu bên dưới" }
+    }],
+    components: [{
+      type: 1,
+      components: [{
+        type: 3,
+        custom_id: "gamehub:select",
+        placeholder: "🎮  Chọn trò chơi để xem hướng dẫn",
+        min_values: 1,
+        max_values: 1,
+        options: Object.entries(GAME_HUB_ITEMS).map(([value, item]) => ({
+          label: item.label, value, description: item.description.slice(0, 100), emoji: { name: item.emoji }
+        }))
+      }]
+    }]
+  };
+}
+
+function gameHubDetail(key) {
+  const item = GAME_HUB_ITEMS[key];
+  if (!item) return { content: "Không tìm thấy trò chơi này.", flags: 64 };
+  const components = [];
+  if (item.launch) components.push({
+    type: 1,
+    components: [{
+      type: 2, style: 1, custom_id: "gamehub:launch:" + item.launch,
+      label: item.launch === "wordchain" ? "Mở ván nối từ" : item.launch === "vtv" ? "Ra câu hỏi" : "Nhận Gold hôm nay",
+      emoji: { name: item.emoji }
+    }]
+  });
+  return {
+    embeds: [{
+      color: COLORS.accent, title: item.emoji + "  " + item.label,
+      description: item.description + "\n\n" + item.instructions,
+      fields: [{ name: "Cách chơi / lệnh", value: item.command, inline: false }],
+      footer: { text: "Chọn trò khác ở bảng GAME HUB bất cứ lúc nào" }
+    }],
+    components, flags: 64, allowed_mentions: { parse: [] }
   };
 }
 
@@ -604,6 +669,11 @@ async function handleInteraction(interaction, env, ctx) {
       return ephemeral(`🎯 POSTLAIN chọn: **${selected.slice(0, 180)}**\n(${choices.length} lựa chọn)`);
     }
 
+    if (command === "gamepanel" && subcommand === "publish") {
+      if (!hasPermission(interaction, 8)) return ephemeral("⛔ Chỉ Admin mới được đăng bảng Game Hub.");
+      return json({ type: 4, data: { ...gameHubPanel(), allowed_mentions: { parse: [] } } });
+    }
+
     if (command === "help") {
       return json({ type: 4, data: { ...helpPanel("games"), flags: 64 } });
     }
@@ -832,6 +902,29 @@ async function handleInteraction(interaction, env, ctx) {
 
   if (interaction.type === 3) {
     const customId = interaction.data?.custom_id || "";
+    if (customId === "gamehub:select") return json({ type: 4, data: gameHubDetail(interaction.data?.values?.[0] || "") });
+    if (customId.startsWith("gamehub:launch:")) {
+      const action = customId.slice("gamehub:launch:".length);
+      const userId = String(interaction.member?.user?.id || interaction.user?.id || "");
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      if (action === "wordchain") {
+        const gameChannel = "1573644570997035100";
+        if (String(interaction.channel_id || "") !== gameChannel) return ephemeral("🎮 Hãy bấm **Mở ván nối từ** ngay trong <#" + gameChannel + "> nhé.");
+        const result = await gateway.fetch("https://gateway/wordchain/start", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId }) });
+        return ephemeral((await result.json()).message || "Không thể mở ván mới.");
+      }
+      if (action === "daily") {
+        const result = await gateway.fetch("https://gateway/games/daily", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, interactionId: String(interaction.id || "") }) });
+        return ephemeral((await result.json()).message || "Chưa thể điểm danh lúc này.");
+      }
+      if (action === "vtv") {
+        const question = createVtvRound(crypto.getRandomValues(new Uint32Array(1))[0] / 0x100000000);
+        const roundId = String(interaction.id || crypto.randomUUID());
+        const created = await gateway.fetch("https://gateway/games/vtv/create", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ roundId, questionId: question.id, correctIndex: question.answer }) });
+        if (!created.ok) return ephemeral("Không thể tạo câu hỏi lúc này. Thử lại nhé.");
+        return json({ type: 4, data: { embeds: [{ color: COLORS.accent, title: "📚 Vua Tiếng Việt", description: question.prompt, footer: { text: "Ai trả lời đúng đầu tiên sẽ ghi điểm." } }], components: [{ type: 1, components: question.options.map((label, index) => ({ type: 2, style: 2, label, custom_id: "vtv:" + roundId + ":" + index })) }], allowed_mentions: { parse: [] } } });
+      }
+    }
     if (customId.startsWith("vtv:")) {
       const parts = customId.split(":");
       const roundId = parts[1] || "";

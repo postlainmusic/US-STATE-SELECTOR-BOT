@@ -1,12 +1,11 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { BAU_CUA_ANIMALS, calculateBauCuaResult, getDailyReward, getVietnamDateKey, getRankLabel, buildWordChainReplyIndex, chooseWordChainReply, resolveXuxi } from "../Src/game-core.js";
+import { BAU_CUA_ANIMALS, calculateBauCuaResult, getDailyReward, getVietnamDateKey, getRankLabel, buildWordChainReplyIndex, chooseWordChainReply, resolveXuxi, rollBauCuaDice, chooseXuxiBotChoice } from "../Src/game-core.js";
 
-test("daily reward grows with consecutive check-ins and is capped", () => {
-  assert.equal(getDailyReward(1), 350);
-  assert.equal(getDailyReward(2), 400);
-  assert.equal(getDailyReward(14), 1000);
-  assert.equal(getDailyReward(99), 1000);
+test("daily reward is a fixed 100,000 Gold regardless of streak", () => {
+  assert.equal(getDailyReward(1), 100000);
+  assert.equal(getDailyReward(2), 100000);
+  assert.equal(getDailyReward(99), 100000);
 });
 
 test("Vietnam daily reset uses Asia/Ho_Chi_Minh calendar date", () => {
@@ -14,10 +13,10 @@ test("Vietnam daily reset uses Asia/Ho_Chi_Minh calendar date", () => {
   assert.equal(getVietnamDateKey(Date.parse("2026-11-21T17:00:00Z")), "2026-11-22");
 });
 
-test("Bau Cua pays stake plus one stake per matching die", () => {
+test("Bau Cua pays a fixed 2x total on a hit to keep the 48 percent game economy bounded", () => {
   assert.equal(calculateBauCuaResult({ animal: "ca", amount: 100, dice: ["ca", "tom", "nai"] }).payout, 200);
-  assert.equal(calculateBauCuaResult({ animal: "ca", amount: 100, dice: ["ca", "ca", "nai"] }).payout, 300);
-  assert.equal(calculateBauCuaResult({ animal: "ca", amount: 100, dice: ["ca", "ca", "ca"] }).payout, 400);
+  assert.equal(calculateBauCuaResult({ animal: "ca", amount: 100, dice: ["ca", "ca", "nai"] }).payout, 200);
+  assert.equal(calculateBauCuaResult({ animal: "ca", amount: 100, dice: ["ca", "ca", "ca"] }).payout, 200);
   assert.equal(calculateBauCuaResult({ animal: "ca", amount: 100, dice: ["bau", "tom", "nai"] }).payout, 0);
 });
 
@@ -50,6 +49,26 @@ test("xu-xi resolves rock paper scissors and virtual stakes", () => {
   assert.equal(resolveXuxi({ choice: "bua", botChoice: "keo", amount: 100 }).outcome, "win");
   assert.equal(resolveXuxi({ choice: "bua", botChoice: "bao", amount: 100 }).net, -100);
   assert.equal(resolveXuxi({ choice: "bao", botChoice: "bao", amount: 100 }).net, 0);
-  assert.equal(resolveXuxi({ choice: "keo", botChoice: "bao", amount: 0 }).net, 0);
+  assert.equal(resolveXuxi({ choice: "keo", botChoice: "bao", amount: 0 }).code, "invalid_amount");
   assert.equal(resolveXuxi({ choice: "dragon", botChoice: "bao", amount: 100 }).code, "invalid_choice");
+});
+
+test("Bau Cua dice generator guarantees the selected animal on a win and excludes it on a loss", () => {
+  const winning = [0.1, 0.1, 0.2, 0.3, 0.4];
+  const losing = [0.9, 0.1, 0.2, 0.3];
+  const winDice = rollBauCuaDice("ca", () => winning.shift() ?? 0.2);
+  const loseDice = rollBauCuaDice("ca", () => losing.shift() ?? 0.2);
+  assert.equal(winDice.length, 3);
+  assert.ok(winDice.includes("ca"));
+  assert.equal(loseDice.length, 3);
+  assert.ok(loseDice.every(value => value !== "ca"));
+});
+
+test("Xuxi bot choice is weighted so the player wins 48 percent and loses 52 percent", () => {
+  for (const choice of ["bua", "keo", "bao"]) {
+    const winBot = chooseXuxiBotChoice(choice, () => 0.2);
+    const loseBot = chooseXuxiBotChoice(choice, () => 0.8);
+    assert.equal(resolveXuxi({ choice, botChoice: winBot.value, amount: 100 }).outcome, "win");
+    assert.equal(resolveXuxi({ choice, botChoice: loseBot.value, amount: 100 }).outcome, "loss");
+  }
 });

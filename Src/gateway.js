@@ -131,7 +131,7 @@ export class DiscordGateway {
       this.ctx.storage.sql.exec(
         "INSERT OR REPLACE INTO word_chain_games (channel_id, active, starter_id, current_tail, used_words, last_player_id, moves, last_move_at) VALUES (?, 1, ?, NULL, '[]', NULL, 0, ?)",
         WORD_CHAIN_CHANNEL_ID, userId, Date.now());
-      return Response.json({ ok: true, message: "🎮 **Ván nối từ POSTLAIN bắt đầu!**\nMọi người gửi cụm từ tiếng Việt đúng 2 tiếng. Người tiếp theo phải bắt đầu bằng tiếng cuối của cụm trước. Chỉ nhận cụm có trong từ điển, không lặp từ, không tự đi hai lượt liên tiếp. Mỗi lượt có 30 giây. Không cần dùng lệnh để bắt đầu, chỉ cần gửi cụm từ vào kênh.\n\n🏁 <@" + userId + "> đã mở ván. Ai đi trước cũng được!" });
+      return Response.json({ ok: true, message: "🎮 **Ván nối từ bắt đầu!**\nMọi người gửi cụm từ tiếng Việt đúng 2 tiếng. Người tiếp theo phải bắt đầu bằng tiếng cuối của cụm trước. Chỉ nhận cụm có trong từ điển, không lặp từ, không tự đi hai lượt liên tiếp. Mỗi lượt có 30 giây. Không cần dùng lệnh để bắt đầu, chỉ cần gửi cụm từ vào kênh.\n\n🏁 <@" + userId + "> đã mở ván. Ai đi trước cũng được!" });
     }
     if (url.pathname === "/wordchain/end" && request.method === "POST") {
       const payload = await request.json();
@@ -565,7 +565,7 @@ export class DiscordGateway {
       this.ctx.storage.sql.exec("INSERT OR REPLACE INTO word_chain_games (channel_id, active, starter_id, current_tail, used_words, last_player_id, moves, last_move_at) VALUES (?, 1, ?, ?, ?, ?, 1, ?)", channelId, userId, parsed.last, JSON.stringify([parsed.phrase]), userId, now);
       this.ctx.storage.sql.exec("INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 0, 0, 1) ON CONFLICT(user_id) DO UPDATE SET moves = moves + 1", userId);
       await this.ctx.storage.setAlarm(now + WORD_CHAIN_TURN_MS);
-      await this.sendWordChainMessage(channelId, "🎮 **POSTLAIN NỐI TỪ đã bắt đầu!**\n✅ **" + parsed.phrase + "**\n🔗 Người tiếp theo nối bằng tiếng: **" + parsed.last + "**\n⏱️ 30 giây mỗi lượt.");
+      await this.sendWordChainMessage(channelId, "🎮 **Ván mới bắt đầu!**\n✅ **" + parsed.phrase + "**\n🔗 Người tiếp theo nối bằng tiếng: **" + parsed.last + "**\n⏱️ 30 giây mỗi lượt.");
       return;
     }
     const used = (() => { try { return JSON.parse(row.used_words || "[]"); } catch { return []; } })();

@@ -312,6 +312,31 @@ async function handleInteraction(interaction, env, ctx) {
     }
 
 
+
+    if (command === "coinflip") {
+      const result = crypto.getRandomValues(new Uint8Array(1))[0] % 2 === 0 ? "🪙 **Heads**" : "🪙 **Tails**";
+      return ephemeral(result);
+    }
+
+    if (command === "roll") {
+      const sides = Number(optionValue(interaction, "sides") || 6);
+      if (!Number.isInteger(sides) || sides < 2 || sides > 1000) return ephemeral("Số mặt xúc xắc phải từ 2 đến 1.000.");
+      const bytes = new Uint32Array(1);
+      crypto.getRandomValues(bytes);
+      const result = (bytes[0] % sides) + 1;
+      return ephemeral(`🎲 Xúc xắc d${sides}: **${result}**`);
+    }
+
+    if (command === "choose") {
+      const raw = String(optionValue(interaction, "options") || "");
+      const choices = raw.split(",").map(value => value.trim()).filter(Boolean).slice(0, 30);
+      if (choices.length < 2) return ephemeral("Nhập ít nhất 2 lựa chọn, ngăn cách bằng dấu phẩy.");
+      const bytes = new Uint32Array(1);
+      crypto.getRandomValues(bytes);
+      const selected = choices[bytes[0] % choices.length];
+      return ephemeral(`🎯 POSTLAIN chọn: **${selected.slice(0, 180)}**\n(${choices.length} lựa chọn)`);
+    }
+
     if (command === "help") {
       return json({
         type: 4,

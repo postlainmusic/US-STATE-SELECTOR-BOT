@@ -204,7 +204,7 @@ function helpPanel(category = "games") {
       fields: [
         { name: "Thông tin", value: "`/ping` · `/nserver` · `/serverinfo` · `/userinfo` · `/avatar`", inline: false },
         { name: "Tương tác", value: "`/report send` · `/poll create` · `/coinflip` · `/roll` · `/choose`", inline: false },
-        { name: "Vai trò & góp ý", value: "`/statepanel publish` · `/feedback send`", inline: false }
+        { name: "Vai trò & góp ý", value: "`/statepanel publish` · `/feedback send` · `/gamepanel publish` (Admin)", inline: false }
       ]
     },
     voice: {
@@ -256,12 +256,12 @@ function helpPanel(category = "games") {
 
 
 const GAME_HUB_ITEMS = {
-  wordchain: { label: "Nối từ", emoji: "🔗", description: "Đấu nối từ tiếng Việt với POSTLAIN. Mỗi lượt 2 tiếng, bot tự đáp lại.", instructions: "Vào <#1573644570997035100> rồi gửi cụm 2 tiếng. Bot sẽ nối tiếp và trả lượt lại cho bạn. Mỗi lượt có 30 giây.", command: "\`/noitu start\` · \`/noitu end\` · \`/noitu score\`", launch: "wordchain" },
-  baucua: { label: "Bầu Cua", emoji: "🦀", description: "Chọn cửa, đặt Gold ảo và thử vận may với ba viên xúc xắc.", instructions: "Chọn một trong sáu linh vật và mức cược. Gold chỉ dùng trong server, không có giá trị tiền thật.", command: "\`/baucua animal amount\` · \`/ngold\` · \`/daily\`" },
-  xuxi: { label: "Kéo Búa Bao", emoji: "✊", description: "Đối đầu POSTLAIN bằng Kéo, Búa hoặc Bao.", instructions: "Chọn nước đi và có thể cược Gold ảo. Không cược thì chơi miễn phí.", command: "\`/xu-xi choice amount\`" },
-  vtv: { label: "Vua Tiếng Việt", emoji: "📚", description: "Trả lời câu hỏi tiếng Việt trắc nghiệm. Ai đúng đầu tiên sẽ ghi điểm.", instructions: "Một câu hỏi, bốn lựa chọn. Bấm đáp án ngay trên câu hỏi để ghi điểm.", command: "\`/vtv\` · \`/vtvrank\`", launch: "vtv" },
-  daily: { label: "Điểm danh", emoji: "🎁", description: "Nhận Gold mỗi ngày và tăng thưởng theo chuỗi điểm danh.", instructions: "Mỗi ngày nhận một lần. Duy trì chuỗi ngày liên tiếp để tăng phần thưởng.", command: "\`/daily\` · \`/ngold\` · \`/grank\`", launch: "daily" },
-  party: { label: "Trò nhanh", emoji: "🎲", description: "Tung xu, xúc xắc hoặc chọn ngẫu nhiên.", instructions: "Dùng các lệnh nhanh để tung xu, gieo xúc xắc hoặc nhờ bot chọn giúp.", command: "\`/ncf\` · \`/ntxx\` · \`/choose\`" }
+  wordchain: { label: "Nối từ", emoji: "🔗", description: "Đấu nối từ tiếng Việt với POSTLAIN. Mỗi lượt 2 tiếng, bot tự đáp lại.", instructions: "Vào <#1573644570997035100> rồi gửi cụm 2 tiếng. Bot sẽ nối tiếp và trả lượt lại cho bạn. Mỗi lượt có 30 giây.", command: "`/noitu start` · `/noitu end` · `/noitu score`", launch: "wordchain" },
+  baucua: { label: "Bầu Cua", emoji: "🦀", description: "Chọn cửa, đặt Gold ảo và thử vận may với ba viên xúc xắc.", instructions: "Chọn một trong sáu linh vật và mức cược. Gold chỉ dùng trong server, không có giá trị tiền thật.", command: "`/baucua animal amount` · `/ngold` · `/daily`" },
+  xuxi: { label: "Kéo Búa Bao", emoji: "✊", description: "Đối đầu POSTLAIN bằng Kéo, Búa hoặc Bao.", instructions: "Chọn nước đi và có thể cược Gold ảo. Không cược thì chơi miễn phí.", command: "`/xu-xi choice amount`" },
+  vtv: { label: "Vua Tiếng Việt", emoji: "📚", description: "Trả lời câu hỏi tiếng Việt trắc nghiệm. Ai đúng đầu tiên sẽ ghi điểm.", instructions: "Một câu hỏi, bốn lựa chọn. Bấm đáp án ngay trên câu hỏi để ghi điểm.", command: "`/vtv` · `/vtvrank`", launch: "vtv" },
+  daily: { label: "Điểm danh", emoji: "🎁", description: "Nhận Gold mỗi ngày và tăng thưởng theo chuỗi điểm danh.", instructions: "Mỗi ngày nhận một lần. Duy trì chuỗi ngày liên tiếp để tăng phần thưởng.", command: "`/daily` · `/ngold` · `/grank`", launch: "daily" },
+  party: { label: "Trò nhanh", emoji: "🎲", description: "Tung xu, xúc xắc hoặc chọn ngẫu nhiên.", instructions: "Dùng các lệnh nhanh để tung xu, gieo xúc xắc hoặc nhờ bot chọn giúp.", command: "`/ncf` · `/ntxx` · `/choose`" }
 };
 
 function gameHubPanel() {

@@ -45,15 +45,15 @@ export function getRankLabel(rank) {
 }
 
 export function buildWordChainReplyIndex(dictionary) {
-  const index = new Map();
+  const buckets = new Map();
   for (const value of dictionary || []) {
     const phrase = String(value || "").normalize("NFC").toLocaleLowerCase("vi-VN").trim().replace(/\s+/gu, " ");
     const parts = phrase.split(" ");
     if (parts.length !== 2 || parts.some(part => !/^\p{L}+$/u.test(part))) continue;
-    if (!index.has(parts[0])) index.set(parts[0], []);
-    index.get(parts[0]).push(phrase);
+    if (!buckets.has(parts[0])) buckets.set(parts[0], new Set());
+    buckets.get(parts[0]).add(phrase);
   }
-  return index;
+  return new Map([...buckets].map(([first, phrases]) => [first, [...phrases]]));
 }
 
 export function chooseWordChainReply(index, currentTail, usedWords = [], randomValue = Math.random()) {

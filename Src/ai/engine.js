@@ -36,7 +36,7 @@ const PROVIDERS = {
     key: "GROQ_API_KEY",
     model: "AI_GROQ_MODEL",
     defaultModel: "openai/gpt-oss-120b",
-    async run(env, question, model) {
+    async run(env, question, model, systemPrompt) {
       return openAICompatible(
         "https://api.groq.com/openai/v1/chat/completions",
         env.GROQ_API_KEY,

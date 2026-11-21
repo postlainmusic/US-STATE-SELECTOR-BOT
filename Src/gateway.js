@@ -5,16 +5,15 @@ const DEFAULT_EXCLUDED_CHANNELS = new Set([
 ]);
 const PRIVATE_NAME = /(^|[-_ ])(staff|admin|moderation|modlog|mod-logs|ticket|private|internal)([-_ ]|$)/i;
 const MAX_MESSAGE_LENGTH = 1800;
-const RETENTION_MS = 7 * 24 * 60 * 60 * 1000;
 
 function normalizeSupportText(value) {
   return String(value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[đĐ]/g, "d").toLowerCase().replace(/[^a-z0-9\s]/g, " ").replace(/\s+/g, " ").trim();
 }
 export function classifySupportMessage(content) {
   const raw = String(content || "").trim();
-  if (raw.length < 6 || raw.length > MAX_MESSAGE_LENGTH) return null;
+  if (raw.length < 3 || raw.length > MAX_MESSAGE_LENGTH) return null;
   const text = normalizeSupportText(raw);
-  const asks = /\b(cho minh hoi|cho hoi|cho tui hoi|giup minh|giup voi|can giup|help|need help|anyone know|co ai biet|ai biet khong|hoi chut|hoi xiu|loi|error|bug|khong duoc|khong hoat dong|khong thay|o dau|lam sao|the nao|cach nao|tai sao|vi sao|sao lai|huong dan|support|ho tro)\b/.test(text);
+  const asks = /\b(cho minh hoi|cho hoi|cho tui hoi|giup minh|giup voi|can giup|minh can|can hoi|help|need help|anyone know|co ai biet|ai biet khong|hoi chut|hoi xiu|report|bao cao|co van de|loi|error|bug|khong duoc|khong hoat dong|khong thay|o dau|lam sao|the nao|cach nao|tai sao|vi sao|sao lai|huong dan|support|ho tro)\b/.test(text);
   if (!asks) return null;
   if (/(bang|state|tieu bang|chon bang|doi bang|role bang|state role)/.test(text)) return { key: "state-role", response: "🗺️ **Vụ chọn bang / State Role**\nMở phòng có bảng chọn bang của server, bấm danh sách và chọn bang mày đang sống. Bot sẽ tự cập nhật role, bang cũ được thay thế. Nếu bảng không hiện, chọn không được hoặc role không đổi, gửi ảnh màn hình kèm tên bang để staff kiểm tra nhé." };
   if (/(verify|verification|xac minh|xac thuc|duyet thanh vien|cap role|nhan role|role member|vai tro|quyen truy cap|khong vao duoc kenh)/.test(text)) return { key: "verification-role", response: "🔐 **Vấn đề xác minh / nhận role**\nKiểm tra phòng hướng dẫn xác minh và làm đúng bước được ghim ở đó. Nếu đã xác minh mà vẫn không thấy phòng hoặc chưa có role, gửi ảnh màn hình và nói rõ bước bị kẹt để staff kiểm tra quyền nhé. Đừng gửi mật khẩu hay mã đăng nhập." };
@@ -34,36 +33,10 @@ function parseIds(value) {
 }
 
 export function isExcludedChannel(channelId, parentId, channelName, parentName, env = {}) {
-  const excluded = new Set([
-    ...DEFAULT_EXCLUDED_CHANNELS,
-    ...parseIds(env.AI_EXCLUDED_CHANNEL_IDS),
-    env.KNOWLEDGE_CHANNEL_ID
-  ].filter(Boolean));
+  const excluded = new Set([...DEFAULT_EXCLUDED_CHANNELS, ...parseIds(env.SUPPORT_EXCLUDED_CHANNEL_IDS)].filter(Boolean));
   if (excluded.has(String(channelId)) || (parentId && excluded.has(String(parentId)))) return true;
   if (PRIVATE_NAME.test(String(channelName || "")) || PRIVATE_NAME.test(String(parentName || ""))) return true;
   return false;
-}
-
-export function shouldStoreMessage(message, guildId, excluded) {
-  if (!message || message.guild_id !== guildId) return false;
-  if (!message.channel_id || excluded(message.channel_id, message)) return false;
-  if (message.author?.bot || message.webhook_id) return false;
-  if (message.type !== undefined && message.type !== 0 && message.type !== 19 && message.type !== 21) return false;
-  return Boolean(String(message.content || "").trim());
-}
-
-function splitMessage(value, max = 1900) {
-  let text = String(value || "").trim();
-  const chunks = [];
-  while (text.length > max) {
-    let cut = text.lastIndexOf("\n", max);
-    if (cut < max * 0.5) cut = text.lastIndexOf(" ", max);
-    if (cut < max * 0.5) cut = max;
-    chunks.push(text.slice(0, cut).trim());
-    text = text.slice(cut).trimStart();
-  }
-  if (text) chunks.push(text);
-  return chunks;
 }
 
 export class DiscordGateway {
@@ -84,7 +57,6 @@ export class DiscordGateway {
     this.lastCloseReason = null;
     this.channelNames = new Map();
     this.channelParents = new Map();
-    this.lastMentionReplyAt = new Map();
     this.ctx.storage.sql.exec("DROP TABLE IF EXISTS community_messages");
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS proactive_replies (
@@ -146,7 +118,7 @@ export class DiscordGateway {
     }
     if (!this.env.DISCORD_BOT_TOKEN || !this.env.DISCORD_GUILD_ID) {
       this.lastError = "Missing DISCORD_BOT_TOKEN or DISCORD_GUILD_ID binding.";
-      console.error("POSTLAIN AI Gateway configuration error:", this.lastError);
+      console.error("POSTLAIN Support Gateway configuration error:", this.lastError);
       return;
     }
     if (this.ws && (this.ws.readyState === WebSocket.OPEN || this.ws.readyState === WebSocket.CONNECTING)) return;
@@ -219,12 +191,12 @@ export class DiscordGateway {
           d: { token: this.env.DISCORD_BOT_TOKEN, session_id: this.sessionId, seq: this.seq }
         });
       } else {
-        // GUILDS + GUILD_MEMBERS + GUILD_MESSAGES + MESSAGE_CONTENT.
+        // GUILDS + GUILD_MESSAGES + MESSAGE_CONTENT.
         this.send({
           op: 2,
           d: {
             token: this.env.DISCORD_BOT_TOKEN,
-            intents: 33283,
+            intents: 33281,
             properties: { os: "cloudflare-workers", browser: "postlain-ai", device: "postlain-ai" }
           }
         });

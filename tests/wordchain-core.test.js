@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { VIETNAMESE_WORDS } from "../Src/wordlist.js";
+import { VIETNAMESE_PLAYER_WORDS, VIETNAMESE_CURATED_WORDS } from "../Src/wordlist-player.js";
 import {
   normalizeVietnamesePhrase,
   parseTwoSyllablePhrase,
@@ -43,4 +44,12 @@ test("enforces chain, repeat and turn-taking rules", () => {
   assert.equal(validateChainMove({
     parsed, currentTail: "gà", usedWords: [], lastPlayerId: "2", userId: "2"
   }).code, "same_player");
+});
+
+test("expanded player dictionary includes attested common phrases and curated examples", () => {
+  const dictionary = new Set([...VIETNAMESE_WORDS, ...VIETNAMESE_PLAYER_WORDS, ...VIETNAMESE_CURATED_WORDS]);
+  assert.equal(validateDictionaryPhrase("gà mái", dictionary).ok, true);
+  assert.equal(validateDictionaryPhrase("gái tây", dictionary).ok, true);
+  assert.equal(validateDictionaryPhrase("tây tạng", dictionary).ok, true);
+  assert.equal(validateDictionaryPhrase("con gà", dictionary).ok, true);
 });

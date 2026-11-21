@@ -47,3 +47,10 @@ This feature branch does not trigger the current GitHub Actions deployment workf
 - No message-content Gateway connection.
 - No moderation or server-changing tools.
 - Provider fallback is sequential and bounded by a 22-second timeout per provider. A persistent global cooldown / quota guard is not yet included; add it before opening `/ask` to a large public server.
+
+## Data handling and free-tier caveats
+
+- In Phase 1, only the text explicitly submitted to `/ask` is sent to the selected AI provider. No channel history is collected.
+- Google's Gemini API free tier may use submitted content to improve Google products. Do not submit passwords, tokens, private member details, or confidential moderation material.
+- OpenRouter free usage is rate-limited; its current free plan documents a 50-request/day cap. The available free models and routing capacity can change.
+- Before enabling Gateway-based reading across all bot-readable channels, publish a clear server privacy notice and review bot read permissions for staff, ticket, moderation-log, and other sensitive channels. Members should know that eligible messages may be processed by external AI providers.

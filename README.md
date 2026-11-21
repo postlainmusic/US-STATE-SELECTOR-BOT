@@ -12,11 +12,11 @@ A serverless Discord interaction bot for a one-state-per-member role selector.
 - All non-state roles are preserved.
 - `/statepanel publish` publishes the persistent component panel.
 - `/health` is a lightweight health check.
-- POSTLAIN Support detects help requests in permitted channels and replies with built-in guidance. Ordinary chat is ignored. New-member greetings are handled by Carl-bot.
+- POSTLAIN Community Assistant detects support topics in permitted channels, responds in Vietnamese or English, asks one clarifying question, and routes safety reports to the private Staff room. Ordinary chat is ignored. New-member greetings are handled by Carl-bot.
 
 ## Architecture
 
-Discord Interactions Endpoint and a Cloudflare Durable Object Gateway handle commands and live community messages. The Gateway uses keyword/rule-based support routing only. It does not call AI providers and does not retain message history. Staff, moderation, ticket and private rooms are excluded.
+Discord Interactions Endpoint and a Cloudflare Durable Object Gateway handle commands and live community messages. The Gateway uses a structured multilingual support engine with topic priorities and built-in guidance. It does not call AI providers and does not retain message history. Safety reports are forwarded to the configured private Staff room. Staff, moderation, ticket and private rooms are excluded from message reading.
 
 ## 1. Create the Discord application
 
@@ -156,5 +156,7 @@ Push to `main`; GitHub Actions deploys the Worker.
 - The bot preserves all roles outside the configured 50 state roles.
 - Discord role hierarchy must allow the bot to manage every state role.
 - Keep all tokens in Worker secrets / GitHub Actions secrets. Never commit them.
+- Configure `SUPPORT_STAFF_CHANNEL_ID` to a private channel visible only to Staff and the bot.
+- Enable the Message Content privileged intent in the Discord Developer Portal for proactive message support.
 - Discord member roles remain the source of truth for state selection. The Durable Object SQLite database stores only short-lived reply-rate-limit metadata, not message content or chat history.
 - If two state selections are submitted at exactly the same time, Discord's member-role updates are last-write-wins. For a very large/high-concurrency server, add a per-member serialized queue before expanding.

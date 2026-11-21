@@ -89,6 +89,11 @@ async function openAICompatible(endpoint, apiKey, model, question, extraHeaders 
     signal: AbortSignal.timeout(22000),
     body: JSON.stringify({
       model,
+      models: model === "openrouter/free" ? [
+        "nvidia/nemotron-3-ultra-550b-a55b:free",
+        "baidu/ernie-5.5-flash-preview:free",
+        "google/gemma-4-26b-a4b-it:free"
+      ] : undefined,
       messages: [
         { role: "system", content: systemPrompt },
         { role: "user", content: question }
@@ -98,9 +103,21 @@ async function openAICompatible(endpoint, apiKey, model, question, extraHeaders 
     })
   });
   const payload = await response.json().catch(() => ({}));
-  if (!response.ok) throw new Error(`Provider HTTP ${response.status}: ${payload.error?.message || "provider error"}`);
-  const answer = payload.choices?.[0]?.message?.content;
-  if (typeof answer !== "string" || !answer.trim()) throw new Error("Provider returned an empty response.");
+  const apiError = payload.error || payload.choices?.[0]?.error;
+  if (!response.ok || apiError) {
+    throw new Error(`Provider HTTP ${response.status}: ${apiError?.message || "provider error"}`);
+  }
+  const rawAnswer = payload.choices?.[0]?.message?.content;
+  const answer = typeof rawAnswer === "string"
+    ? rawAnswer
+    : Array.isArray(rawAnswer)
+      ? rawAnswer.map(part => typeof part === "string" ? part : part?.text || "").join("")
+      : "";
+  if (!answer.trim()) {
+    const finish = payload.choices?.[0]?.finish_reason || "unknown";
+    const actualModel = payload.model || model;
+    throw new Error(`Provider returned no text (model=${actualModel}, finish_reason=${finish}, response_id=${payload.id || "n/a"}).`);
+  }
   return answer.trim();
 }
 

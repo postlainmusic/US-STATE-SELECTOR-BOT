@@ -58,3 +58,12 @@ test("returns language-aware support guidance and follow-up prompts", () => {
 test("safety reports outrank generic technical keywords", () => {
   assert.equal(classifySupportMessage("Help, report lỗi lừa đảo")?.key, "safety-report");
 });
+test("marks safety reports for private Staff escalation", () => {
+  const report = classifySupportMessage("I got scammed by someone");
+  assert.equal(report?.key, "safety-report");
+  assert.equal(report?.requiresStaff, true);
+});
+
+test("avoids common Vietnamese word collisions", () => {
+  assert.equal(classifySupportMessage("Bạn nhắc mình sau nhé"), null);
+});

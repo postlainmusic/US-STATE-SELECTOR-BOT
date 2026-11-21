@@ -1,10 +1,9 @@
 import http from "node:http";
 import { spawn } from "node:child_process";
-import { randomUUID, timingSafeEqual } from "node:crypto";
+import { timingSafeEqual } from "node:crypto";
 import { mkdtemp, rm } from "node:fs/promises";
 import os from "node:os";
 import path from "node:path";
-import { once } from "node:events";
 import {
   Client,
   GatewayIntentBits,
@@ -137,8 +136,7 @@ async function synthesize(text, voice) {
   const output = path.join(folder, "speech.mp3");
   try {
     await new Promise((resolve, reject) => {
-      const child = spawn("python3", [
-        "-m", "edge_tts",
+      const child = spawn("edge-tts", [
         "--voice", voice,
         "--text", text,
         "--write-media", output
@@ -194,6 +192,7 @@ function enqueue(guildId, job) {
 async function drainQueue(guildId) {
   const queue = queues.get(guildId);
   while (queue?.length) {
+    if (queues.get(guildId) !== queue) break;
     const job = queue[0];
     try {
       const session = sessions.get(guildId);
@@ -204,7 +203,7 @@ async function drainQueue(guildId) {
     }
     queue.shift();
   }
-  queues.delete(guildId);
+  if (queues.get(guildId) === queue) queues.delete(guildId);
 }
 
 async function handle(req, res) {

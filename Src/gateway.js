@@ -1,3 +1,4 @@
+import { VIETNAMESE_WORDS } from "./wordlist.js";
 const DISCORD_API = "https://discord.com/api/v10";
 const DEFAULT_EXCLUDED_CHANNELS = new Set([
   "1571762668916707399", // Staff chat
@@ -423,6 +424,10 @@ export class DiscordGateway {
     const row = this.ctx.storage.sql.exec("SELECT * FROM word_chain_games WHERE channel_id = ? AND active = 1", channelId).toArray()[0];
     if (!row) return;
     const now = Date.now();
+    if (!VIETNAMESE_WORDS.has(phrase)) {
+      await this.sendWordChainMessage(channelId, "📖 **" + phrase + "** chưa có trong từ điển của trò chơi. Hãy dùng một từ/cụm từ tiếng Việt phổ biến có trong từ điển nhé.");
+      return;
+    }
     const used = (() => { try { return JSON.parse(row.used_words || "[]"); } catch { return []; } })();
     const previousPlayer = String(row.last_player_id || "");
     const previousTail = String(row.current_tail || "");

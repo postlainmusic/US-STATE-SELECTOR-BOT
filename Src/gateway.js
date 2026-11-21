@@ -349,7 +349,7 @@ export class DiscordGateway {
     this.ctx.storage.sql.exec("DELETE FROM community_messages WHERE created_at < ?", Date.now() - RETENTION_MS);
     this.ctx.storage.sql.exec("DELETE FROM community_messages WHERE id IN (SELECT id FROM community_messages ORDER BY created_at DESC LIMIT -1 OFFSET 1500)");
 
-    const botId = this.env.DISCORD_APPLICATION_ID;
+    const botId = this.env.DISCORD_BOT_USER_ID || this.env.DISCORD_APPLICATION_ID;
     const mentioned = Array.isArray(message.mentions) && message.mentions.some(user => user.id === botId);
     if (mentioned && botId && content) await this.replyToMention(message, content);
   }

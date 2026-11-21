@@ -108,6 +108,7 @@ export class DiscordGateway {
     }
 
     if (url.pathname === "/wordchain/start" && request.method === "POST") {
+      await this.connect();
       const payload = await request.json();
       const userId = String(payload.userId || "");
       if (!userId) return Response.json({ ok: false, message: "Không xác định được người chơi." }, { status: 400 });
@@ -432,7 +433,7 @@ export class DiscordGateway {
     const previousPlayer = String(row.last_player_id || "");
     const previousTail = String(row.current_tail || "");
 
-    if (row.last_move_at && now - Number(row.last_move_at) > WORD_CHAIN_TURN_MS) {
+    if (previousTail && row.last_move_at && now - Number(row.last_move_at) > WORD_CHAIN_TURN_MS) {
       this.ctx.storage.sql.exec("UPDATE word_chain_games SET active = 0 WHERE channel_id = ?", channelId);
       if (previousPlayer) this.ctx.storage.sql.exec(
         "INSERT INTO word_chain_scores (user_id, wins, losses, moves) VALUES (?, 1, 0, 0) ON CONFLICT(user_id) DO UPDATE SET wins = wins + 1", previousPlayer);

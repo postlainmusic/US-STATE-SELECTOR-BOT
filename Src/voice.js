@@ -36,7 +36,7 @@ async function callVoiceEngine(env, route, payload) {
       "Content-Type": "application/json"
     },
     body: JSON.stringify(payload),
-    signal: AbortSignal.timeout(12000)
+    signal: AbortSignal.timeout(30000)
   });
   const data = await result.json().catch(() => ({}));
   if (!result.ok) throw new Error(data.error || `Voice Engine trả về HTTP ${result.status}`);

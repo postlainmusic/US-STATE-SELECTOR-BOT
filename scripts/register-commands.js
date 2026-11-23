@@ -9,6 +9,13 @@ if (!appId || !botToken || !guildId) {
 
 const commands = [
   {
+    name: "loveconnect",
+    description: "Đăng bảng đăng ký LOVE CONNECT (Admin)",
+    default_member_permissions: "8",
+    dm_permission: false,
+    options: [{ type: 1, name: "publish", description: "Đăng bảng đăng ký trong phòng LOVE CONNECT" }]
+  },
+  {
     name: "game",
     description: "Mở bảng chọn trò chơi POSTLAIN",
     dm_permission: false

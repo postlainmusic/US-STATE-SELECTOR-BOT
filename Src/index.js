@@ -460,6 +460,7 @@ async function handleInteraction(interaction, env, ctx) {
     if (command === "ketdoi") {
       const MATCH_CHANNEL_ID = "1574291793464533022";
       const MATCH_ADMIN_CHANNEL_ID = "1574295001993584761";
+      const MATCH_RESULT_CHANNEL_ID = "1574301322545598514";
       if (String(interaction.channel_id || "") !== MATCH_CHANNEL_ID) return ephemeral("💘 Lệnh /ketdoi chỉ sử dụng trong phòng <#" + MATCH_CHANNEL_ID + "> nhé.");
       const targetId = optionValue(interaction, "ten");
       const decision = optionValue(interaction, "quyet_dinh");
@@ -494,7 +495,22 @@ async function handleInteraction(interaction, env, ctx) {
               allowed_mentions: { parse: [] }
             })
           });
-          await editInteractionResponse(env, interaction, accepted ? "💗 Đã ghi nhận lựa chọn đồng ý kết đôi với **" + targetName + "** và gửi riêng cho BTC." : "📝 Đã ghi nhận lựa chọn không đồng ý với **" + targetName + "** và gửi riêng cho BTC.");
+          await discord("/channels/" + MATCH_RESULT_CHANNEL_ID + "/messages", env, {
+            method: "POST",
+            body: JSON.stringify({
+              embeds: [{
+                color: accepted ? 0xF06C9B : 0x8B929D,
+                title: accepted ? "💗 KẾT QUẢ KẾT ĐÔI · ĐỒNG Ý" : "💔 KẾT QUẢ KẾT ĐÔI · TỪ CHỐI",
+                description: accepted
+                  ? "**" + actorName + "** đã chọn đồng ý kết đôi với **" + targetName + "**."
+                  : "**" + actorName + "** đã chọn không đồng ý kết đôi với **" + targetName + "**.",
+                footer: { text: "LOVE CONNECT · MATCHING RESULT" },
+                timestamp: new Date().toISOString()
+              }],
+              allowed_mentions: { parse: [] }
+            })
+          });
+          await editInteractionResponse(env, interaction, accepted ? "💗 Đã ghi nhận lựa chọn đồng ý kết đôi với **" + targetName + "**. Kết quả đã được gửi đến phòng kết quả và BTC." : "📝 Đã ghi nhận lựa chọn không đồng ý với **" + targetName + "**. Kết quả đã được gửi đến phòng kết quả và BTC.");
         } catch (error) {
           console.error("LOVE CONNECT match decision relay failed:", error);
           await editInteractionResponse(env, interaction, "❌ Chưa gửi được lựa chọn đến BTC. Vui lòng thử lại sau.");

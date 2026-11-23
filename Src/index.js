@@ -459,7 +459,6 @@ async function handleInteraction(interaction, env, ctx) {
 
     if (command === "ketdoi") {
       const MATCH_CHANNEL_ID = "1574291793464533022";
-      const MATCH_ADMIN_CHANNEL_ID = "1574295001993584761";
       const MATCH_RESULT_CHANNEL_ID = "1574301322545598514";
       if (String(interaction.channel_id || "") !== MATCH_CHANNEL_ID) return ephemeral("💘 Lệnh /ketdoi chỉ sử dụng trong phòng <#" + MATCH_CHANNEL_ID + "> nhé.");
       const targetId = optionValue(interaction, "ten");
@@ -476,25 +475,6 @@ async function handleInteraction(interaction, env, ctx) {
       const deferred = json({ type: 5, data: { flags: 64 } });
       const work = (async () => {
         try {
-          await discord("/channels/" + MATCH_ADMIN_CHANNEL_ID + "/messages", env, {
-            method: "POST",
-            body: JSON.stringify({
-              embeds: [{
-                color: accepted ? 0xF06C9B : 0x8B929D,
-                title: accepted ? "💞 LOVE CONNECT · ĐỒNG Ý KẾT ĐÔI" : "💔 LOVE CONNECT · KHÔNG ĐỒNG Ý",
-                description: accepted ? "Một thành viên đã chọn **đồng ý kết đôi** với người được chọn." : "Một thành viên đã chọn **không đồng ý kết đôi** với người được chọn.",
-                fields: [
-                  { name: "Người gửi lựa chọn", value: actorName + " (<@" + actorId + ">)\\nID: " + actorId, inline: true },
-                  { name: "Người được chọn", value: targetName + " (<@" + targetId + ">)\\nID: " + targetId, inline: true },
-                  { name: "Quyết định", value: accepted ? "💗 Đồng ý kết đôi" : "Không đồng ý kết đôi", inline: false },
-                  { name: "Phòng gửi", value: "<#" + MATCH_CHANNEL_ID + ">", inline: true }
-                ],
-                footer: { text: "LOVE CONNECT · PRIVATE MATCHING NOTICE" },
-                timestamp: new Date().toISOString()
-              }],
-              allowed_mentions: { parse: [] }
-            })
-          });
           await discord("/channels/" + MATCH_RESULT_CHANNEL_ID + "/messages", env, {
             method: "POST",
             body: JSON.stringify({
@@ -510,7 +490,7 @@ async function handleInteraction(interaction, env, ctx) {
               allowed_mentions: { parse: [] }
             })
           });
-          await editInteractionResponse(env, interaction, accepted ? "💗 Đã ghi nhận lựa chọn đồng ý kết đôi với **" + targetName + "**. Kết quả đã được gửi đến phòng kết quả và BTC." : "📝 Đã ghi nhận lựa chọn không đồng ý với **" + targetName + "**. Kết quả đã được gửi đến phòng kết quả và BTC.");
+          await editInteractionResponse(env, interaction, accepted ? "💗 Đã ghi nhận lựa chọn đồng ý kết đôi với **" + targetName + "**. Kết quả đã được đăng tại phòng kết quả." : "📝 Đã ghi nhận lựa chọn không đồng ý với **" + targetName + "**. Kết quả đã được gửi đến phòng kết quả và BTC.");
         } catch (error) {
           console.error("LOVE CONNECT match decision relay failed:", error);
           await editInteractionResponse(env, interaction, "❌ Chưa gửi được lựa chọn đến BTC. Vui lòng thử lại sau.");

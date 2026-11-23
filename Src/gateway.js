@@ -116,6 +116,9 @@ export class DiscordGateway {
     `);
     this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_game_wallets_gold ON game_wallets(gold DESC)");
     this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS dating_drafts (user_id TEXT PRIMARY KEY, data TEXT NOT NULL, stage INTEGER NOT NULL, updated_at INTEGER NOT NULL)");
+    this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS dating_registrations (user_id TEXT PRIMARY KEY, gender TEXT NOT NULL, data TEXT NOT NULL, created_at INTEGER NOT NULL)");
+    this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS dating_event_state (id INTEGER PRIMARY KEY CHECK(id = 1), active INTEGER NOT NULL DEFAULT 1)");
+    this.ctx.storage.sql.exec("INSERT OR IGNORE INTO dating_event_state (id, active) VALUES (1, 1)");
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS vtv_rounds (
         round_id TEXT PRIMARY KEY,
@@ -180,6 +183,47 @@ export class DiscordGateway {
       });
     }
 
+
+    if (url.pathname === "/dating/registrations") {
+      if (request.method === "GET") {
+        const state = this.ctx.storage.sql.exec("SELECT active FROM dating_event_state WHERE id = 1").toArray()[0];
+        const counts = { male: 0, female: 0 };
+        for (const row of this.ctx.storage.sql.exec("SELECT gender, COUNT(*) AS total FROM dating_registrations GROUP BY gender").toArray()) counts[row.gender] = Number(row.total || 0);
+        return Response.json({ ok: true, active: Boolean(state?.active), counts, total: counts.male + counts.female, limit: 16 });
+      }
+      if (request.method === "POST") {
+        const payload = await request.json();
+        const userId = String(payload.userId || "");
+        const data = payload.data && typeof payload.data === "object" ? payload.data : {};
+        const rawGender = String(data.gender || "").trim().toLocaleLowerCase("vi");
+        const gender = ["nam", "male", "con trai", "nam giới"].includes(rawGender) ? "male"
+          : ["nữ", "nu", "female", "con gái", "nữ giới"].includes(rawGender) ? "female" : "";
+        if (!userId || !gender) return Response.json({ ok: false, code: "INVALID_GENDER", message: "Chỉ nhận hồ sơ giới tính Nam hoặc Nữ." }, { status: 400 });
+        const state = this.ctx.storage.sql.exec("SELECT active FROM dating_event_state WHERE id = 1").toArray()[0];
+        if (!state?.active) return Response.json({ ok: false, code: "CLOSED", message: "Event đang đóng đăng ký." }, { status: 409 });
+        if (this.ctx.storage.sql.exec("SELECT user_id FROM dating_registrations WHERE user_id = ?", userId).toArray()[0]) return Response.json({ ok: false, code: "DUPLICATE", message: "Bạn đã gửi đơn trong event này rồi." }, { status: 409 });
+        const total = Number(this.ctx.storage.sql.exec("SELECT COUNT(*) AS total FROM dating_registrations").toArray()[0]?.total || 0);
+        const count = Number(this.ctx.storage.sql.exec("SELECT COUNT(*) AS total FROM dating_registrations WHERE gender = ?", gender).toArray()[0]?.total || 0);
+        if (total >= 16) return Response.json({ ok: false, code: "FULL", message: "Đã đủ 16 hồ sơ cho event này." }, { status: 409 });
+        if (count >= 8) return Response.json({ ok: false, code: "GENDER_FULL", gender, message: gender === "male" ? "Đã đủ 8 hồ sơ Nam." : "Đã đủ 8 hồ sơ Nữ." }, { status: 409 });
+        this.ctx.storage.sql.exec("INSERT INTO dating_registrations (user_id, gender, data, created_at) VALUES (?, ?, ?, ?)", userId, gender, JSON.stringify(data), Date.now());
+        const counts = { male: 0, female: 0 };
+        for (const row of this.ctx.storage.sql.exec("SELECT gender, COUNT(*) AS total FROM dating_registrations GROUP BY gender").toArray()) counts[row.gender] = Number(row.total || 0);
+        return Response.json({ ok: true, counts, total: counts.male + counts.female });
+      }
+      if (request.method === "DELETE" && url.searchParams.has("userId")) {
+        const userId = String(url.searchParams.get("userId") || "");
+        this.ctx.storage.sql.exec("DELETE FROM dating_registrations WHERE user_id = ?", userId);
+        return Response.json({ ok: true });
+      }
+      if (request.method === "DELETE") {
+        this.ctx.storage.sql.exec("DELETE FROM dating_registrations");
+        this.ctx.storage.sql.exec("UPDATE dating_event_state SET active = 1 WHERE id = 1");
+        const drafts = await this.ctx.storage.list({ prefix: "dating_draft:" });
+        for (const key of drafts.keys()) await this.ctx.storage.delete(key);
+        return Response.json({ ok: true, active: true, counts: { male: 0, female: 0 }, total: 0 });
+      }
+    }
 
     if (url.pathname === "/dating/draft") {
       if (request.method === "POST") {

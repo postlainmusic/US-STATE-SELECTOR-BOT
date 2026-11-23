@@ -505,7 +505,13 @@ async function handleInteraction(interaction, env, ctx) {
       const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
       const response = await gateway.fetch("https://gateway/dating/registrations", { method: "DELETE" });
       if (!response.ok) return ephemeral("❌ Không thể làm mới event. Thử lại sau.");
-      return ephemeral("🧹 Đã xóa toàn bộ đơn đăng ký và bản nháp của event cũ. LOVE CONNECT đã mở lại, sẵn sàng nhận tối đa 16 đơn mới (8 Nam, 8 Nữ).");
+      const reset = await response.json();
+      let deletedMessages = 0;
+      for (const messageId of reset.messageIds || []) {
+        try { await discord("/channels/" + LOVE_ADMIN_CHANNEL_ID + "/messages/" + messageId, env, { method: "DELETE" }); deletedMessages++; }
+        catch (error) { console.error("LOVE CONNECT old registration message cleanup failed:", messageId, error); }
+      }
+      return ephemeral("🧹 Đã xóa " + deletedMessages + " đơn cũ trong phòng BTC và toàn bộ dữ liệu đăng ký/bản nháp. Event mới đã mở, nhận tối đa 16 đơn (8 Nam, 8 Nữ).");
     }
 
     if (command === "loveconnect" && subcommand === "publish") {
@@ -1161,7 +1167,8 @@ async function handleInteraction(interaction, env, ctx) {
       const fields = [["Biệt danh",d.nickname],["Tuổi",d.age],["Giới tính",d.gender],["Muốn ghép đôi với",d.preference],["Tiểu bang & múi giờ",d.location],["Tình trạng",d.status],["Tính cách & sở thích",d.personality],["Mẫu người lý tưởng",d.ideal],["Voice Chat",d.voice],["Mục đích",d.purpose]];
       const embed = { color: 0xF06C9B, title: "💘 LOVE CONNECT · ĐƠN ĐĂNG KÝ MỚI", description: "Một thành viên vừa gửi phiếu đăng ký. Thông tin này chỉ dành cho BTC.", fields: fields.map(([name,value]) => ({ name, value: String(value || "—").slice(0,1024), inline: ["Tuổi","Giới tính","Voice Chat"].includes(name) })), footer: { text: "LOVE CONNECT · PRIVATE REGISTRATION" }, timestamp: new Date().toISOString() };
       try {
-        await discord("/channels/" + LOVE_ADMIN_CHANNEL_ID + "/messages", env, { method: "POST", body: JSON.stringify({ content: "💌 **Đơn mới từ:** <@" + userId + "> · " + userId, embeds: [embed], allowed_mentions: { parse: [] } }) });
+        const adminMessage = await discord("/channels/" + LOVE_ADMIN_CHANNEL_ID + "/messages", env, { method: "POST", body: JSON.stringify({ content: "💌 **Đơn mới từ:** <@" + userId + "> · " + userId, embeds: [embed], allowed_mentions: { parse: [] } }) });
+        await gateway.fetch("https://gateway/dating/registrations", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, messageId: String(adminMessage?.id || "") }) });
         await gateway.fetch("https://gateway/dating/draft?userId=" + encodeURIComponent(userId), { method: "DELETE" });
         try {
           const dm = await discord("/users/@me/channels", env, { method: "POST", body: JSON.stringify({ recipient_id: userId }) });

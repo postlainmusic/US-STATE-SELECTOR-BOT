@@ -28,15 +28,15 @@ function loveModal(page) {
     components: first ? [
       modalField("nickname", "01 · Biệt danh", 1, "Tên bạn muốn mọi người gọi", true, 60),
       modalField("age", "02 · Tuổi (bắt buộc 18+)", 1, "Ví dụ: 22", true, 3),
-      modalField("gender", "03 · Giới tính", 1, "Nam / Nữ / Khác / Không muốn tiết lộ", true, 50),
-      modalField("preference", "04 · Muốn ghép đôi với", 1, "Nam / Nữ / Không giới hạn / Khác", true, 80),
-      modalField("location", "05 · Tiểu bang & múi giờ", 1, "Ví dụ: California · PST (UTC−8)", true, 100)
+      modalField("gender", "03 · Giới tính", 1, "Nam, nữ hoặc khác", true, 50),
+      modalField("preference", "04 · Muốn ghép đôi với", 1, "Nam, nữ, không giới hạn hoặc khác", true, 80),
+      modalField("location", "05 · Tiểu bang & múi giờ", 1, "Ví dụ: California, PST", true, 100)
     ] : [
-      modalField("status", "06 · Tình trạng hiện tại", 1, "Độc thân / Khác", true, 60),
+      modalField("status", "06 · Tình trạng hiện tại", 1, "Độc thân hoặc khác", true, 60),
       modalField("personality", "07 · Tính cách & sở thích", 2, "Một chút về con người và điều bạn thích", true, 700),
       modalField("ideal", "08 · Mẫu người lý tưởng", 2, "Bạn mong muốn gặp một người như thế nào?", true, 700),
-      modalField("voice", "09 · Có thể tham gia Voice Chat?", 1, "Có / Không", true, 30),
-      modalField("purpose", "10 · Mục đích tham gia", 1, "Tìm người yêu / Tìm hiểu / Kết bạn", true, 100)
+      modalField("voice", "09 · Voice Chat?", 1, "Có hoặc không", true, 30),
+      modalField("purpose", "10 · Mục đích tham gia", 1, "Tìm người yêu, tìm hiểu hoặc kết bạn", true, 100)
     ]
   };
 }
@@ -1034,10 +1034,11 @@ async function handleInteraction(interaction, env, ctx) {
     const values = modalValues(interaction);
     const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
     if (customId === "love:modal:1") {
-      const age = Number(values.age);
-      if (!Number.isInteger(age) || age < 18 || age > 99) return ephemeral("⛔ Bạn cần nhập tuổi hợp lệ từ 18 đến 99 để đăng ký LOVE CONNECT.");
+      const ageText = String(values.age || "").trim();
+      const age = Number((ageText.match(/\\d{1,2}/) || [])[0] || NaN);
+      if (!Number.isInteger(age) || age < 18 || age > 99) return ephemeral("⛔ Nhập tuổi bằng số từ 18 đến 99 nhé. Ví dụ: 22");
       const result = await gateway.fetch("https://gateway/dating/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, stage: 1, data: { ...values, age: String(age) } }) });
-      if (!result.ok) return ephemeral("❌ Không lưu được thông tin. Hãy thử lại.");
+      if (!result.ok) { const detail = await result.text().catch(() => ""); console.error("LOVE CONNECT draft save failed:", result.status, detail); return ephemeral("❌ Chưa lưu được. Thử lại sau ít phút nhé."); }
       return json({
         type: 4,
         data: {

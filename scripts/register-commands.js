@@ -9,6 +9,18 @@ if (!appId || !botToken || !guildId) {
 
 const commands = [
   {
+    name: "ketdoi",
+    description: "Gửi lựa chọn kết đôi riêng cho Ban Tổ Chức",
+    dm_permission: false,
+    options: [
+      { type: 6, name: "ten", description: "Chọn thành viên bạn muốn kết đôi", required: true },
+      { type: 3, name: "quyet_dinh", description: "Bạn có đồng ý kết đôi không?", required: true, choices: [
+        { name: "Đồng ý kết đôi", value: "dong_y" },
+        { name: "Không đồng ý", value: "khong_dong_y" }
+      ]}
+    ]
+  },
+  {
     name: "loveconnect",
     description: "Đăng bảng đăng ký LOVE CONNECT (Admin)",
     default_member_permissions: "8",

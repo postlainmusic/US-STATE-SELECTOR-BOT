@@ -456,6 +456,54 @@ async function handleInteraction(interaction, env, ctx) {
     if (voiceResponse) return voiceResponse;
 
 
+
+    if (command === "ketdoi") {
+      const MATCH_CHANNEL_ID = "1574291793464533022";
+      const MATCH_ADMIN_CHANNEL_ID = "1574295001993584761";
+      if (String(interaction.channel_id || "") !== MATCH_CHANNEL_ID) return ephemeral("💘 Lệnh /ketdoi chỉ sử dụng trong phòng <#" + MATCH_CHANNEL_ID + "> nhé.");
+      const targetId = optionValue(interaction, "ten");
+      const decision = optionValue(interaction, "quyet_dinh");
+      const actor = interaction.member?.user || interaction.user || {};
+      const actorId = String(actor.id || "");
+      if (!targetId || !["dong_y", "khong_dong_y"].includes(decision)) return ephemeral("⚠️ Hãy chọn tên thành viên và quyết định kết đôi.");
+      if (targetId === actorId) return ephemeral("😅 Không thể tự chọn chính mình để kết đôi đâu!");
+      const target = await discord("/guilds/" + interaction.guild_id + "/members/" + targetId, env).catch(() => null);
+      if (!target?.user) return ephemeral("❌ Không tìm thấy thành viên đó trong server.");
+      const accepted = decision === "dong_y";
+      const targetName = target.user.global_name || target.user.username || "Thành viên";
+      const actorName = actor.global_name || actor.username || "Thành viên";
+      const deferred = json({ type: 5, data: { flags: 64 } });
+      const work = (async () => {
+        try {
+          await discord("/channels/" + MATCH_ADMIN_CHANNEL_ID + "/messages", env, {
+            method: "POST",
+            body: JSON.stringify({
+              embeds: [{
+                color: accepted ? 0xF06C9B : 0x8B929D,
+                title: accepted ? "💞 LOVE CONNECT · ĐỒNG Ý KẾT ĐÔI" : "💔 LOVE CONNECT · KHÔNG ĐỒNG Ý",
+                description: accepted ? "Một thành viên đã chọn **đồng ý kết đôi** với người được chọn." : "Một thành viên đã chọn **không đồng ý kết đôi** với người được chọn.",
+                fields: [
+                  { name: "Người gửi lựa chọn", value: actorName + " (<@" + actorId + ">)\\nID: " + actorId, inline: true },
+                  { name: "Người được chọn", value: targetName + " (<@" + targetId + ">)\\nID: " + targetId, inline: true },
+                  { name: "Quyết định", value: accepted ? "💗 Đồng ý kết đôi" : "Không đồng ý kết đôi", inline: false },
+                  { name: "Phòng gửi", value: "<#" + MATCH_CHANNEL_ID + ">", inline: true }
+                ],
+                footer: { text: "LOVE CONNECT · PRIVATE MATCHING NOTICE" },
+                timestamp: new Date().toISOString()
+              }],
+              allowed_mentions: { parse: [] }
+            })
+          });
+          await editInteractionResponse(env, interaction, accepted ? "💗 Đã ghi nhận lựa chọn đồng ý kết đôi với **" + targetName + "** và gửi riêng cho BTC." : "📝 Đã ghi nhận lựa chọn không đồng ý với **" + targetName + "** và gửi riêng cho BTC.");
+        } catch (error) {
+          console.error("LOVE CONNECT match decision relay failed:", error);
+          await editInteractionResponse(env, interaction, "❌ Chưa gửi được lựa chọn đến BTC. Vui lòng thử lại sau.");
+        }
+      })();
+      ctx.waitUntil(work);
+      return deferred;
+    }
+
     if (command === "loveconnect" && subcommand === "publish") {
       if (!hasPermission(interaction, 8)) return ephemeral("⛔ Chỉ Admin mới có thể đăng bảng LOVE CONNECT.");
       if (String(interaction.channel_id || "") !== LOVE_CHANNEL_ID) return ephemeral("Hãy dùng lệnh này trong <#" + LOVE_CHANNEL_ID + ">.");

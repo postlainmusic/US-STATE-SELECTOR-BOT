@@ -115,6 +115,7 @@ export class DiscordGateway {
       )
     `);
     this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_game_wallets_gold ON game_wallets(gold DESC)");
+    this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS dating_drafts (user_id TEXT PRIMARY KEY, data TEXT NOT NULL, stage INTEGER NOT NULL, updated_at INTEGER NOT NULL)");
     this.ctx.storage.sql.exec(`
       CREATE TABLE IF NOT EXISTS vtv_rounds (
         round_id TEXT PRIMARY KEY,
@@ -179,6 +180,31 @@ export class DiscordGateway {
       });
     }
 
+
+    if (url.pathname === "/dating/draft") {
+      if (request.method === "POST") {
+        const payload = await request.json();
+        const userId = String(payload.userId || ""), stage = Number(payload.stage);
+        const incoming = payload.data && typeof payload.data === "object" ? payload.data : {};
+        if (!userId || ![1,2].includes(stage)) return Response.json({ ok: false }, { status: 400 });
+        const existing = this.ctx.storage.sql.exec("SELECT data, stage FROM dating_drafts WHERE user_id = ?", userId).toArray()[0];
+        if (stage === 2 && (!existing || Number(existing.stage) !== 1)) return Response.json({ ok: false }, { status: 409 });
+        const merged = { ...(existing ? JSON.parse(existing.data) : {}), ...incoming };
+        this.ctx.storage.sql.exec("INSERT INTO dating_drafts (user_id,data,stage,updated_at) VALUES (?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data, stage=excluded.stage, updated_at=excluded.updated_at", userId, JSON.stringify(merged), stage, Date.now());
+        return Response.json({ ok: true });
+      }
+      if (request.method === "GET") {
+        const userId = String(url.searchParams.get("userId") || "");
+        const row = this.ctx.storage.sql.exec("SELECT data,stage,updated_at FROM dating_drafts WHERE user_id = ?", userId).toArray()[0];
+        if (!row || Date.now() - Number(row.updated_at) > 86400000) return Response.json({ ok: false, data: null });
+        return Response.json({ ok: true, stage: Number(row.stage), data: JSON.parse(row.data) });
+      }
+      if (request.method === "DELETE") {
+        const userId = String(url.searchParams.get("userId") || "");
+        this.ctx.storage.sql.exec("DELETE FROM dating_drafts WHERE user_id = ?", userId);
+        return Response.json({ ok: true });
+      }
+    }
     if (url.pathname === "/games/grind" && request.method === "POST") {
       const payload = await request.json();
       const userId = String(payload.userId || "");

@@ -184,24 +184,28 @@ export class DiscordGateway {
     if (url.pathname === "/dating/draft") {
       if (request.method === "POST") {
         const payload = await request.json();
-        const userId = String(payload.userId || ""), stage = Number(payload.stage);
+        const userId = String(payload.userId || "");
+        const stage = Number(payload.stage);
         const incoming = payload.data && typeof payload.data === "object" ? payload.data : {};
-        if (!userId || ![1,2].includes(stage)) return Response.json({ ok: false }, { status: 400 });
-        const existing = this.ctx.storage.sql.exec("SELECT data, stage FROM dating_drafts WHERE user_id = ?", userId).toArray()[0];
-        if (stage === 2 && (!existing || Number(existing.stage) !== 1)) return Response.json({ ok: false }, { status: 409 });
-        const merged = { ...(existing ? JSON.parse(existing.data) : {}), ...incoming };
-        this.ctx.storage.sql.exec("INSERT INTO dating_drafts (user_id,data,stage,updated_at) VALUES (?,?,?,?) ON CONFLICT(user_id) DO UPDATE SET data=excluded.data, stage=excluded.stage, updated_at=excluded.updated_at", userId, JSON.stringify(merged), stage, Date.now());
+        if (!userId || ![1, 2].includes(stage)) return Response.json({ ok: false, message: "Invalid registration data." }, { status: 400 });
+        const key = "dating_draft:" + userId;
+        const existing = await this.ctx.storage.get(key);
+        if (stage === 2 && (!existing || Number(existing.stage) !== 1 || Date.now() - Number(existing.updatedAt || 0) > 86400000)) {
+          return Response.json({ ok: false, message: "Registration step one expired. Please start again." }, { status: 409 });
+        }
+        const merged = { ...(existing?.data || {}), ...incoming };
+        await this.ctx.storage.put(key, { data: merged, stage, updatedAt: Date.now() });
         return Response.json({ ok: true });
       }
       if (request.method === "GET") {
         const userId = String(url.searchParams.get("userId") || "");
-        const row = this.ctx.storage.sql.exec("SELECT data,stage,updated_at FROM dating_drafts WHERE user_id = ?", userId).toArray()[0];
-        if (!row || Date.now() - Number(row.updated_at) > 86400000) return Response.json({ ok: false, data: null });
-        return Response.json({ ok: true, stage: Number(row.stage), data: JSON.parse(row.data) });
+        const draft = await this.ctx.storage.get("dating_draft:" + userId);
+        if (!draft || Date.now() - Number(draft.updatedAt || 0) > 86400000) return Response.json({ ok: false, data: null });
+        return Response.json({ ok: true, stage: Number(draft.stage), data: draft.data });
       }
       if (request.method === "DELETE") {
         const userId = String(url.searchParams.get("userId") || "");
-        this.ctx.storage.sql.exec("DELETE FROM dating_drafts WHERE user_id = ?", userId);
+        await this.ctx.storage.delete("dating_draft:" + userId);
         return Response.json({ ok: true });
       }
     }

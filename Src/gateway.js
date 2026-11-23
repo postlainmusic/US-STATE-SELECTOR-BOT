@@ -221,7 +221,10 @@ export class DiscordGateway {
         const payload = await request.json();
         const userId = String(payload.userId || "");
         const messageId = String(payload.messageId || "");
-        if (userId && messageId) this.ctx.storage.sql.exec("UPDATE dating_registrations SET message_id = ? WHERE user_id = ?", messageId, userId);
+        const data = payload.data && typeof payload.data === "object" ? payload.data : {};
+        const rawGender = String(data.gender || "").trim().toLocaleLowerCase("vi");
+        const gender = ["nam", "male", "con trai", "nam giới"].includes(rawGender) ? "male" : "female";
+        if (userId && messageId) this.ctx.storage.sql.exec("INSERT OR REPLACE INTO dating_registrations (user_id, gender, data, created_at, message_id) VALUES (?, ?, ?, ?, ?)", userId, gender, JSON.stringify(data), Date.now(), messageId);
         return Response.json({ ok: true });
       }
       if (request.method === "DELETE") {

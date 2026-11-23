@@ -21,6 +21,12 @@ const commands = [
     ]
   },
   {
+    name: "ketthuchenho",
+    description: "Kết thúc event, xóa đơn cũ và mở đợt đăng ký mới (Admin)",
+    default_member_permissions: "8",
+    dm_permission: false
+  },
+  {
     name: "loveconnect",
     description: "Đăng bảng đăng ký LOVE CONNECT (Admin)",
     default_member_permissions: "8",

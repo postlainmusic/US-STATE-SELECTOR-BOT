@@ -500,6 +500,14 @@ async function handleInteraction(interaction, env, ctx) {
       return deferred;
     }
 
+    if (command === "ketthuchenho") {
+      if (!hasPermission(interaction, 8)) return ephemeral("⛔ Chỉ Admin mới được kết thúc và làm mới event.");
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const response = await gateway.fetch("https://gateway/dating/registrations", { method: "DELETE" });
+      if (!response.ok) return ephemeral("❌ Không thể làm mới event. Thử lại sau.");
+      return ephemeral("🧹 Đã xóa toàn bộ đơn đăng ký và bản nháp của event cũ. LOVE CONNECT đã mở lại, sẵn sàng nhận tối đa 16 đơn mới (8 Nam, 8 Nữ).");
+    }
+
     if (command === "loveconnect" && subcommand === "publish") {
       if (!hasPermission(interaction, 8)) return ephemeral("⛔ Chỉ Admin mới có thể đăng bảng LOVE CONNECT.");
       if (String(interaction.channel_id || "") !== LOVE_CHANNEL_ID) return ephemeral("Hãy dùng lệnh này trong <#" + LOVE_CHANNEL_ID + ">.");
@@ -1080,6 +1088,8 @@ async function handleInteraction(interaction, env, ctx) {
     if (customId === "love:modal:1") {
       const ageText = String(values.age || "").trim();
       const age = Number.parseInt(ageText, 10);
+      const genderText = String(values.gender || "").trim().toLocaleLowerCase("vi");
+      if (!["nam", "male", "con trai", "nam giới", "nữ", "nu", "female", "con gái", "nữ giới"].includes(genderText)) return ephemeral("💘 Event hiện chỉ nhận hồ sơ Nam hoặc Nữ. Hãy nhập đúng **Nam** hoặc **Nữ** nhé.");
       if (!Number.isInteger(age) || age < 18 || age > 99) return ephemeral("⛔ Nhập tuổi bằng số từ 18 đến 99 nhé. Ví dụ: 22");
       const result = await gateway.fetch("https://gateway/dating/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, stage: 1, data: { ...values, age: String(age) } }) });
       if (!result.ok) { const detail = await result.text().catch(() => ""); console.error("LOVE CONNECT draft save failed:", result.status, detail); return ephemeral("❌ Chưa lưu được. Thử lại sau ít phút nhé."); }
@@ -1136,6 +1146,18 @@ async function handleInteraction(interaction, env, ctx) {
       const draft = await draftResponse.json();
       if (!draft.ok || !draft.data || Number(draft.data.age) < 18) return ephemeral("⚠️ Không tìm thấy hồ sơ hợp lệ. Hãy bắt đầu lại bằng nút Đăng ký ngay.");
       const d = draft.data;
+      const registrationResponse = await gateway.fetch("https://gateway/dating/registrations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, data: d }) });
+      const registration = await registrationResponse.json();
+      if (!registration.ok) {
+        const messages = {
+          CLOSED: "🔒 Event hiện đã đóng đăng ký.",
+          DUPLICATE: "⚠️ Bạn đã gửi đơn trong event này rồi. Mỗi người chỉ được đăng ký một lần.",
+          FULL: "💌 Event đã đủ 16 người (8 Nam, 8 Nữ). Hẹn bạn ở đợt tiếp theo!",
+          GENDER_FULL: registration.gender === "male" ? "💌 Đã đủ 8 hồ sơ Nam. Suất Nam đã đóng, cảm ơn bạn!" : "💌 Đã đủ 8 hồ sơ Nữ. Suất Nữ đã đóng, cảm ơn bạn!",
+          INVALID_GENDER: "⚠️ Chỉ nhận hồ sơ Nam hoặc Nữ. Hãy đăng ký lại với giới tính hợp lệ."
+        };
+        return ephemeral(messages[registration.code] || registration.message || "Không thể nhận đơn lúc này.");
+      }
       const fields = [["Biệt danh",d.nickname],["Tuổi",d.age],["Giới tính",d.gender],["Muốn ghép đôi với",d.preference],["Tiểu bang & múi giờ",d.location],["Tình trạng",d.status],["Tính cách & sở thích",d.personality],["Mẫu người lý tưởng",d.ideal],["Voice Chat",d.voice],["Mục đích",d.purpose]];
       const embed = { color: 0xF06C9B, title: "💘 LOVE CONNECT · ĐƠN ĐĂNG KÝ MỚI", description: "Một thành viên vừa gửi phiếu đăng ký. Thông tin này chỉ dành cho BTC.", fields: fields.map(([name,value]) => ({ name, value: String(value || "—").slice(0,1024), inline: ["Tuổi","Giới tính","Voice Chat"].includes(name) })), footer: { text: "LOVE CONNECT · PRIVATE REGISTRATION" }, timestamp: new Date().toISOString() };
       try {
@@ -1147,6 +1169,7 @@ async function handleInteraction(interaction, env, ctx) {
         } catch (e) { console.log("LOVE CONNECT confirmation DM unavailable:", String(e?.message || e)); }
         return ephemeral("💗 Đã gửi đơn thành công đến Ban Tổ Chức. Cảm ơn bạn đã tham gia LOVE CONNECT!");
       } catch (error) {
+        await gateway.fetch("https://gateway/dating/registrations?userId=" + encodeURIComponent(userId), { method: "DELETE" }).catch(() => null);
         console.error("LOVE CONNECT submit failed:", error);
         return ephemeral("❌ Chưa gửi được đơn. Vui lòng thử lại sau hoặc liên hệ BTC.");
       }

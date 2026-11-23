@@ -15,6 +15,53 @@ const REGIONS = [
 
 const COLORS = { background: 0x111827, accent: 0x4F8CFF };
 
+const LOVE_CHANNEL_ID = "1574291587653963816";
+const LOVE_ADMIN_CHANNEL_ID = "1574295001993584761";
+function modalField(customId, label, style = 1, placeholder = "", required = true, maxLength = 400) {
+  return { type: 1, components: [{ type: 4, custom_id: customId, label, style, min_length: required ? 1 : 0, max_length: maxLength, placeholder: placeholder.slice(0, 100), required }] };
+}
+function loveModal(page) {
+  const first = page === 1;
+  return {
+    custom_id: first ? "love:modal:1" : "love:modal:2",
+    title: first ? "LOVE CONNECT · Hồ sơ" : "LOVE CONNECT · Kết nối",
+    components: first ? [
+      modalField("nickname", "01 · Biệt danh", 1, "Tên bạn muốn mọi người gọi", true, 60),
+      modalField("age", "02 · Tuổi (bắt buộc 18+)", 1, "Ví dụ: 22", true, 3),
+      modalField("gender", "03 · Giới tính", 1, "Nam / Nữ / Khác / Không muốn tiết lộ", true, 50),
+      modalField("preference", "04 · Muốn ghép đôi với", 1, "Nam / Nữ / Không giới hạn / Khác", true, 80),
+      modalField("location", "05 · Tiểu bang & múi giờ", 1, "Ví dụ: California · PST (UTC−8)", true, 100)
+    ] : [
+      modalField("status", "06 · Tình trạng hiện tại", 1, "Độc thân / Khác", true, 60),
+      modalField("personality", "07 · Tính cách & sở thích", 2, "Một chút về con người và điều bạn thích", true, 700),
+      modalField("ideal", "08 · Mẫu người lý tưởng", 2, "Bạn mong muốn gặp một người như thế nào?", true, 700),
+      modalField("voice", "09 · Có thể tham gia Voice Chat?", 1, "Có / Không", true, 30),
+      modalField("purpose", "10 · Mục đích tham gia", 1, "Tìm người yêu / Tìm hiểu / Kết bạn", true, 100)
+    ]
+  };
+}
+function modalValues(interaction) {
+  const out = {};
+  for (const row of interaction.data?.components || []) for (const field of row.components || []) out[field.custom_id] = String(field.value || "").trim();
+  return out;
+}
+function lovePanel() {
+  return {
+    embeds: [{
+      color: 0xF06C9B,
+      title: "💘 LOVE CONNECT",
+      description: "**GENZ VIỆT TRÊN ĐẤT MỸ 🇻🇳🇺🇸**\n\nMột chiếc form nhỏ để bạn gặp thêm những người thú vị. Điền thông tin thật thoải mái, BTC sẽ xem và hỗ trợ kết nối phù hợp.\n\n💌 **PHIẾU ĐĂNG KÝ HẸN HÒ**\n• 10 câu hỏi · 2 bước điền riêng tư\n• Chỉ dành cho thành viên từ **18 tuổi trở lên**\n• Đơn được gửi riêng đến Ban Tổ Chức\n\n🔒 Thông tin chỉ phục vụ việc tổ chức và ghép đôi, không công khai khi chưa có sự đồng ý.",
+      fields: [
+        { name: "01 / Đăng ký", value: "Bấm nút bên dưới và hoàn thành hai bước form trong cửa sổ riêng.", inline: true },
+        { name: "02 / Xác nhận", value: "Kiểm tra và xác nhận cam kết trước khi gửi.", inline: true }
+      ],
+      footer: { text: "LOVE CONNECT · WHERE STRANGERS BECOME SOMETHING MORE." }
+    }],
+    components: [{ type: 1, components: [{ type: 2, style: 1, custom_id: "love:start", label: "Đăng ký ngay", emoji: { name: "💘" } }] }]
+  };
+}
+
+
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -407,6 +454,13 @@ async function handleInteraction(interaction, env, ctx) {
     const subcommand = interaction.data?.options?.[0]?.name;
     const voiceResponse = await handleVoiceCommand(interaction, env, ctx);
     if (voiceResponse) return voiceResponse;
+
+
+    if (command === "loveconnect" && subcommand === "publish") {
+      if (!hasPermission(interaction, 8)) return ephemeral("⛔ Chỉ Admin mới có thể đăng bảng LOVE CONNECT.");
+      if (String(interaction.channel_id || "") !== LOVE_CHANNEL_ID) return ephemeral("Hãy dùng lệnh này trong <#" + LOVE_CHANNEL_ID + ">.");
+      return json({ type: 4, data: { ...lovePanel(), allowed_mentions: { parse: [] } } });
+    }
 
     // Community feedback relay: accept feedback only from the designated room.
     if (command === "feedback" && subcommand === "send") {
@@ -973,8 +1027,59 @@ async function handleInteraction(interaction, env, ctx) {
     }
   }
 
+
+  if (interaction.type === 5) {
+    const customId = interaction.data?.custom_id || "";
+    const userId = String(interaction.member?.user?.id || interaction.user?.id || "");
+    const values = modalValues(interaction);
+    const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+    if (customId === "love:modal:1") {
+      const age = Number(values.age);
+      if (!Number.isInteger(age) || age < 18 || age > 99) return ephemeral("⛔ Bạn cần nhập tuổi hợp lệ từ 18 đến 99 để đăng ký LOVE CONNECT.");
+      const result = await gateway.fetch("https://gateway/dating/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, stage: 1, data: { ...values, age: String(age) } }) });
+      if (!result.ok) return ephemeral("❌ Không lưu được thông tin. Hãy thử lại.");
+      return json({ type: 4, data: { content: "💌 **Bước 1/2 đã xong!**\nCòn 5 câu cuối để hoàn tất hồ sơ.", flags: 64, components: [{ type: 1, components: [{ type: 2, style: 1, custom_id: "love:continue", label: "Tiếp tục bước 2", emoji: { name: "💗" } }, { type: 2, style: 2, custom_id: "love:cancel", label: "Hủy đăng ký" }] }] });
+    }
+    if (customId === "love:modal:2") {
+      if (!["có","không","co","khong","yes","no"].includes(String(values.voice || "").toLowerCase())) return ephemeral("Vui lòng nhập Voice Chat là Có hoặc Không.");
+      const result = await gateway.fetch("https://gateway/dating/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, stage: 2, data: values }) });
+      if (!result.ok) return ephemeral("❌ Không lưu được thông tin. Hãy thử lại.");
+      return json({ type: 4, data: { content: "💗 **Đã hoàn thành 10/10 câu hỏi!**\n\nTrước khi gửi, vui lòng xác nhận:\n☑️ Tôi xác nhận đủ 18 tuổi.\n☑️ Tôi tham gia tự nguyện.\n☑️ Tôi tôn trọng quyền riêng tư và tuân thủ luật chơi.\n\nThông tin sẽ chỉ được gửi đến BTC.", flags: 64, components: [{ type: 1, components: [{ type: 2, style: 1, custom_id: "love:confirm", label: "Xác nhận & gửi đơn", emoji: { name: "💌" } }, { type: 2, style: 2, custom_id: "love:cancel", label: "Hủy" }] }] });
+    }
+  }
+
   if (interaction.type === 3) {
     const customId = interaction.data?.custom_id || "";
+
+    if (customId === "love:start") {
+      if (String(interaction.channel_id || "") !== LOVE_CHANNEL_ID) return ephemeral("💘 Form này chỉ mở tại <#" + LOVE_CHANNEL_ID + ">.");
+      return json({ type: 9, data: loveModal(1) });
+    }
+    if (customId === "love:continue") return json({ type: 9, data: loveModal(2) });
+    if (customId === "love:cancel") return ephemeral("Đã hủy đăng ký. Thông tin nháp sẽ tự hết hạn.");
+    if (customId === "love:confirm") {
+      const user = interaction.member?.user || interaction.user || {};
+      const userId = String(user.id || "");
+      const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
+      const draftResponse = await gateway.fetch("https://gateway/dating/draft?userId=" + encodeURIComponent(userId));
+      const draft = await draftResponse.json();
+      if (!draft.ok || !draft.data || Number(draft.data.age) < 18) return ephemeral("⚠️ Không tìm thấy hồ sơ hợp lệ. Hãy bắt đầu lại bằng nút Đăng ký ngay.");
+      const d = draft.data;
+      const fields = [["Biệt danh",d.nickname],["Tuổi",d.age],["Giới tính",d.gender],["Muốn ghép đôi với",d.preference],["Tiểu bang & múi giờ",d.location],["Tình trạng",d.status],["Tính cách & sở thích",d.personality],["Mẫu người lý tưởng",d.ideal],["Voice Chat",d.voice],["Mục đích",d.purpose]];
+      const embed = { color: 0xF06C9B, title: "💘 LOVE CONNECT · ĐƠN ĐĂNG KÝ MỚI", description: "Một thành viên vừa gửi phiếu đăng ký. Thông tin này chỉ dành cho BTC.", fields: fields.map(([name,value]) => ({ name, value: String(value || "—").slice(0,1024), inline: ["Tuổi","Giới tính","Voice Chat"].includes(name) })), footer: { text: "LOVE CONNECT · PRIVATE REGISTRATION" }, timestamp: new Date().toISOString() };
+      try {
+        await discord("/channels/" + LOVE_ADMIN_CHANNEL_ID + "/messages", env, { method: "POST", body: JSON.stringify({ content: "💌 **Đơn mới từ:** <@" + userId + "> · " + userId, embeds: [embed], allowed_mentions: { parse: [] } }) });
+        await gateway.fetch("https://gateway/dating/draft?userId=" + encodeURIComponent(userId), { method: "DELETE" });
+        try {
+          const dm = await discord("/users/@me/channels", env, { method: "POST", body: JSON.stringify({ recipient_id: userId }) });
+          await discord("/channels/" + dm.id + "/messages", env, { method: "POST", body: JSON.stringify({ content: "💘 LOVE CONNECT đã nhận được đơn đăng ký của bạn! BTC sẽ xem thông tin và liên hệ nếu có kết nối phù hợp. Cảm ơn bạn đã tham gia. 🔒" }) });
+        } catch (e) { console.log("LOVE CONNECT confirmation DM unavailable:", String(e?.message || e)); }
+        return ephemeral("💗 Đã gửi đơn thành công đến Ban Tổ Chức. Cảm ơn bạn đã tham gia LOVE CONNECT!");
+      } catch (error) {
+        console.error("LOVE CONNECT submit failed:", error);
+        return ephemeral("❌ Chưa gửi được đơn. Vui lòng thử lại sau hoặc liên hệ BTC.");
+      }
+    }
     if (customId === "gamehub:open") return json({ type: 4, data: { ...gameHubPanel(), flags: 64, allowed_mentions: { parse: [] } } });
     if (customId === "gamehub:select") return json({ type: 4, data: gameHubDetail(interaction.data?.values?.[0] || "") });
     if (customId.startsWith("gamehub:launch:")) {

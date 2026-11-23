@@ -117,6 +117,7 @@ export class DiscordGateway {
     this.ctx.storage.sql.exec("CREATE INDEX IF NOT EXISTS idx_game_wallets_gold ON game_wallets(gold DESC)");
     this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS dating_drafts (user_id TEXT PRIMARY KEY, data TEXT NOT NULL, stage INTEGER NOT NULL, updated_at INTEGER NOT NULL)");
     this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS dating_registrations (user_id TEXT PRIMARY KEY, gender TEXT NOT NULL, data TEXT NOT NULL, created_at INTEGER NOT NULL)");
+    try { this.ctx.storage.sql.exec("ALTER TABLE dating_registrations ADD COLUMN message_id TEXT"); } catch {}
     this.ctx.storage.sql.exec("CREATE TABLE IF NOT EXISTS dating_event_state (id INTEGER PRIMARY KEY CHECK(id = 1), active INTEGER NOT NULL DEFAULT 1)");
     this.ctx.storage.sql.exec("INSERT OR IGNORE INTO dating_event_state (id, active) VALUES (1, 1)");
     this.ctx.storage.sql.exec(`
@@ -216,12 +217,20 @@ export class DiscordGateway {
         this.ctx.storage.sql.exec("DELETE FROM dating_registrations WHERE user_id = ?", userId);
         return Response.json({ ok: true });
       }
+      if (request.method === "PATCH") {
+        const payload = await request.json();
+        const userId = String(payload.userId || "");
+        const messageId = String(payload.messageId || "");
+        if (userId && messageId) this.ctx.storage.sql.exec("UPDATE dating_registrations SET message_id = ? WHERE user_id = ?", messageId, userId);
+        return Response.json({ ok: true });
+      }
       if (request.method === "DELETE") {
+        const messageIds = this.ctx.storage.sql.exec("SELECT message_id FROM dating_registrations WHERE message_id IS NOT NULL AND message_id != ''").toArray().map(row => String(row.message_id));
         this.ctx.storage.sql.exec("DELETE FROM dating_registrations");
         this.ctx.storage.sql.exec("UPDATE dating_event_state SET active = 1 WHERE id = 1");
         const drafts = await this.ctx.storage.list({ prefix: "dating_draft:" });
         for (const key of drafts.keys()) await this.ctx.storage.delete(key);
-        return Response.json({ ok: true, active: true, counts: { male: 0, female: 0 }, total: 0 });
+        return Response.json({ ok: true, messageIds, active: true, counts: { male: 0, female: 0 }, total: 0 });
       }
     }
 

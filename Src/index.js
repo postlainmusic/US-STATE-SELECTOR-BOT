@@ -1152,23 +1152,32 @@ async function handleInteraction(interaction, env, ctx) {
       const draft = await draftResponse.json();
       if (!draft.ok || !draft.data || Number(draft.data.age) < 18) return ephemeral("⚠️ Không tìm thấy hồ sơ hợp lệ. Hãy bắt đầu lại bằng nút Đăng ký ngay.");
       const d = draft.data;
-      const registrationResponse = await gateway.fetch("https://gateway/dating/registrations", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, data: d }) });
-      const registration = await registrationResponse.json();
-      if (!registration.ok) {
-        const messages = {
-          CLOSED: "🔒 Event hiện đã đóng đăng ký.",
-          DUPLICATE: "⚠️ Bạn đã gửi đơn trong event này rồi. Mỗi người chỉ được đăng ký một lần.",
-          FULL: "💌 Event đã đủ 16 người (8 Nam, 8 Nữ). Hẹn bạn ở đợt tiếp theo!",
-          GENDER_FULL: registration.gender === "male" ? "💌 Đã đủ 8 hồ sơ Nam. Suất Nam đã đóng, cảm ơn bạn!" : "💌 Đã đủ 8 hồ sơ Nữ. Suất Nữ đã đóng, cảm ơn bạn!",
-          INVALID_GENDER: "⚠️ Chỉ nhận hồ sơ Nam hoặc Nữ. Hãy đăng ký lại với giới tính hợp lệ."
-        };
-        return ephemeral(messages[registration.code] || registration.message || "Không thể nhận đơn lúc này.");
+      const genderText = String(d.gender || "").trim().toLocaleLowerCase("vi");
+      const gender = ["nam", "male", "con trai", "nam giới"].includes(genderText) ? "male"
+        : ["nữ", "nu", "female", "con gái", "nữ giới"].includes(genderText) ? "female" : "";
+      if (!gender) return ephemeral("💘 Event chỉ nhận hồ sơ Nam hoặc Nữ.");
+      const existingMessages = await discord("/channels/" + LOVE_ADMIN_CHANNEL_ID + "/messages?limit=100", env);
+      const validForms = (existingMessages || []).filter(message =>
+        message.author?.id === String(env.DISCORD_APPLICATION_ID || message.author?.id) &&
+        (message.embeds || []).some(embed => String(embed.title || "").includes("LOVE CONNECT · ĐƠN ĐĂNG KÝ MỚI"))
+      );
+      if (validForms.some(message => String(message.content || "").includes(userId))) return ephemeral("⚠️ Bạn đã có đơn đăng ký còn hiệu lực. Nếu Admin đã xóa đơn cũ, hãy thử gửi lại nhé.");
+      const counts = { male: 0, female: 0 };
+      for (const message of validForms) {
+        const genderField = (message.embeds?.[0]?.fields || []).find(field => field.name === "Giới tính");
+        const value = String(genderField?.value || "").trim().toLocaleLowerCase("vi");
+        if (["nam", "male", "con trai", "nam giới"].includes(value)) counts.male++;
+        else if (["nữ", "nu", "female", "con gái", "nữ giới"].includes(value)) counts.female++;
       }
+      if (validForms.length >= 16) return ephemeral("💌 Event đã đủ 16 đơn hợp lệ (8 Nam, 8 Nữ).");
+      if (counts[gender] >= 8) return ephemeral(gender === "male" ? "💌 Đã đủ 8 đơn Nam. Suất Nam sẽ mở lại nếu Admin xóa một đơn." : "💌 Đã đủ 8 đơn Nữ. Suất Nữ sẽ mở lại nếu Admin xóa một đơn.");
       const fields = [["Biệt danh",d.nickname],["Tuổi",d.age],["Giới tính",d.gender],["Muốn ghép đôi với",d.preference],["Tiểu bang & múi giờ",d.location],["Tình trạng",d.status],["Tính cách & sở thích",d.personality],["Mẫu người lý tưởng",d.ideal],["Voice Chat",d.voice],["Mục đích",d.purpose]];
       const embed = { color: 0xF06C9B, title: "💘 LOVE CONNECT · ĐƠN ĐĂNG KÝ MỚI", description: "Một thành viên vừa gửi phiếu đăng ký. Thông tin này chỉ dành cho BTC.", fields: fields.map(([name,value]) => ({ name, value: String(value || "—").slice(0,1024), inline: ["Tuổi","Giới tính","Voice Chat"].includes(name) })), footer: { text: "LOVE CONNECT · PRIVATE REGISTRATION" }, timestamp: new Date().toISOString() };
       try {
-        const adminMessage = await discord("/channels/" + LOVE_ADMIN_CHANNEL_ID + "/messages", env, { method: "POST", body: JSON.stringify({ content: "💌 **Đơn mới từ:** <@" + userId + "> · " + userId, embeds: [embed], allowed_mentions: { parse: [] } }) });
-        await gateway.fetch("https://gateway/dating/registrations", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, messageId: String(adminMessage?.id || "") }) });
+        const nextCount = counts[gender] + 1;
+        const label = gender === "male" ? "NAM" : "NỮ";
+        const adminMessage = await discord("/channels/" + LOVE_ADMIN_CHANNEL_ID + "/messages", env, { method: "POST", body: JSON.stringify({ content: "💌 **ĐƠN " + label + " " + nextCount + "/8** · Người đăng ký: <@" + userId + "> · " + userId, embeds: [embed], allowed_mentions: { parse: [] } }) });
+        await gateway.fetch("https://gateway/dating/registrations", { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, data: d, messageId: String(adminMessage?.id || "") }) });
         await gateway.fetch("https://gateway/dating/draft?userId=" + encodeURIComponent(userId), { method: "DELETE" });
         try {
           const dm = await discord("/users/@me/channels", env, { method: "POST", body: JSON.stringify({ recipient_id: userId }) });
@@ -1176,7 +1185,6 @@ async function handleInteraction(interaction, env, ctx) {
         } catch (e) { console.log("LOVE CONNECT confirmation DM unavailable:", String(e?.message || e)); }
         return ephemeral("💗 Đã gửi đơn thành công đến Ban Tổ Chức. Cảm ơn bạn đã tham gia LOVE CONNECT!");
       } catch (error) {
-        await gateway.fetch("https://gateway/dating/registrations?userId=" + encodeURIComponent(userId), { method: "DELETE" }).catch(() => null);
         console.error("LOVE CONNECT submit failed:", error);
         return ephemeral("❌ Chưa gửi được đơn. Vui lòng thử lại sau hoặc liên hệ BTC.");
       }

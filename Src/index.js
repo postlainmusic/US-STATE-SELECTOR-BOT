@@ -1035,7 +1035,7 @@ async function handleInteraction(interaction, env, ctx) {
     const gateway = env.GATEWAY.get(env.GATEWAY.idFromName("postlain-ai-gateway"));
     if (customId === "love:modal:1") {
       const ageText = String(values.age || "").trim();
-      const age = Number((ageText.match(/\\d{1,2}/) || [])[0] || NaN);
+      const age = Number.parseInt(ageText, 10);
       if (!Number.isInteger(age) || age < 18 || age > 99) return ephemeral("⛔ Nhập tuổi bằng số từ 18 đến 99 nhé. Ví dụ: 22");
       const result = await gateway.fetch("https://gateway/dating/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, stage: 1, data: { ...values, age: String(age) } }) });
       if (!result.ok) { const detail = await result.text().catch(() => ""); console.error("LOVE CONNECT draft save failed:", result.status, detail); return ephemeral("❌ Chưa lưu được. Thử lại sau ít phút nhé."); }

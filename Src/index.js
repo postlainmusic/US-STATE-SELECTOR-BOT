@@ -1038,13 +1038,39 @@ async function handleInteraction(interaction, env, ctx) {
       if (!Number.isInteger(age) || age < 18 || age > 99) return ephemeral("⛔ Bạn cần nhập tuổi hợp lệ từ 18 đến 99 để đăng ký LOVE CONNECT.");
       const result = await gateway.fetch("https://gateway/dating/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, stage: 1, data: { ...values, age: String(age) } }) });
       if (!result.ok) return ephemeral("❌ Không lưu được thông tin. Hãy thử lại.");
-      return json({ type: 4, data: { content: "💌 **Bước 1/2 đã xong!**\nCòn 5 câu cuối để hoàn tất hồ sơ.", flags: 64, components: [{ type: 1, components: [{ type: 2, style: 1, custom_id: "love:continue", label: "Tiếp tục bước 2", emoji: { name: "💗" } }, { type: 2, style: 2, custom_id: "love:cancel", label: "Hủy đăng ký" }] }] });
+      return json({
+        type: 4,
+        data: {
+          content: "💌 **Bước 1/2 đã xong!**\\nCòn 5 câu cuối để hoàn tất hồ sơ.",
+          flags: 64,
+          components: [{
+            type: 1,
+            components: [
+              { type: 2, style: 1, custom_id: "love:continue", label: "Tiếp tục bước 2", emoji: { name: "💗" } },
+              { type: 2, style: 2, custom_id: "love:cancel", label: "Hủy đăng ký" }
+            ]
+          }]
+        }
+      });
     }
     if (customId === "love:modal:2") {
       if (!["có","không","co","khong","yes","no"].includes(String(values.voice || "").toLowerCase())) return ephemeral("Vui lòng nhập Voice Chat là Có hoặc Không.");
       const result = await gateway.fetch("https://gateway/dating/draft", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId, stage: 2, data: values }) });
       if (!result.ok) return ephemeral("❌ Không lưu được thông tin. Hãy thử lại.");
-      return json({ type: 4, data: { content: "💗 **Đã hoàn thành 10/10 câu hỏi!**\n\nTrước khi gửi, vui lòng xác nhận:\n☑️ Tôi xác nhận đủ 18 tuổi.\n☑️ Tôi tham gia tự nguyện.\n☑️ Tôi tôn trọng quyền riêng tư và tuân thủ luật chơi.\n\nThông tin sẽ chỉ được gửi đến BTC.", flags: 64, components: [{ type: 1, components: [{ type: 2, style: 1, custom_id: "love:confirm", label: "Xác nhận & gửi đơn", emoji: { name: "💌" } }, { type: 2, style: 2, custom_id: "love:cancel", label: "Hủy" }] }] });
+      return json({
+        type: 4,
+        data: {
+          content: "💗 **Đã hoàn thành 10/10 câu hỏi!**\\n\\nTrước khi gửi, vui lòng xác nhận:\\n☑️ Tôi xác nhận đủ 18 tuổi.\\n☑️ Tôi tham gia tự nguyện.\\n☑️ Tôi tôn trọng quyền riêng tư và tuân thủ luật chơi.\\n\\nThông tin sẽ chỉ được gửi đến BTC.",
+          flags: 64,
+          components: [{
+            type: 1,
+            components: [
+              { type: 2, style: 1, custom_id: "love:confirm", label: "Xác nhận & gửi đơn", emoji: { name: "💌" } },
+              { type: 2, style: 2, custom_id: "love:cancel", label: "Hủy" }
+            ]
+          }]
+        }
+      });
     }
   }
 
